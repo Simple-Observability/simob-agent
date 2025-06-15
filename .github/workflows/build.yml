@@ -29,24 +29,29 @@ jobs:
         go-version: '1.24'
         cache-dependency-path: ./agent/go.sum
 
+    - name: Set Environment Variables
+      run: |
+        echo "TARGET=linux-${{ matrix.arch }}" >> $GITHUB_ENV
+        echo "BINARY_NAME=simob-linux-${{ matrix.arch }}" >> $GITHUB_ENV
+        echo "VERSION=${{ github.ref_name }}" >> $GITHUB_ENV
+        echo "Go version used: $(go version)"
+
     - name: Install dependencies
       run: go mod download
       working-directory: ./agent
 
     - name: Build agent binary
-      env:
-        VERSION: ${{ github.ref_name }}
-        TARGET: "linux-${{ matrix.arch }}"
       run: |
-        echo "Building version: $VERSION"
-        go build -ldflags "-X 'agent/internal/version.Version=$VERSION'" -o ../simob-$TARGET main.go
+        echo "Building version: ${{ env.VERSION }}"
+        echo "Output binary name: ../${{ env.BINARY_NAME }}"
+        go build -ldflags "-X 'agent/internal/version.Version=${{ env.VERSION }}'" -o ../${{ env.BINARY_NAME }} main.go
       working-directory: ./agent
 
     - name: Check agent version
-      run: ./simob-${{ github.ref_name }} version
+      run: ./ ${{ env.BINARY_NAME }} version
 
     - name: Run install script
-      run: sudo BINARY_PATH="simob-${{ github.ref_name }}" bash install.sh dummy-api-key --dry-run
+      run: sudo BINARY_PATH="${{ env.BINARY_NAME }}" bash install.sh dummy-api-key --dry-run
 
     - name: Run agent
       run: |
@@ -60,5 +65,5 @@ jobs:
         tag_name: ${{ github.ref_name }}
         name: Release ${{ github.ref_name }}
         files: |
-          simob-linux-${{ matrix.arch }}
+          ${{ env.BINARY_NAME }}
           install.sh
