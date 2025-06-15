@@ -1,5 +1,14 @@
 package common
 
+import (
+	"os"
+	"path/filepath"
+)
+
 func GetProgramDirectory() (string, error) {
-	return "/tmp/simob", nil
+	exePath, err := os.Executable()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Dir(exePath), nil
 }
