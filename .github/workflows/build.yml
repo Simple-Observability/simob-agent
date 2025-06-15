@@ -48,7 +48,7 @@ jobs:
       working-directory: ./agent
 
     - name: Check agent version
-      run: ./ ${{ env.BINARY_NAME }} version
+      run: ./${{ env.BINARY_NAME }} version
 
     - name: Run install script
       run: sudo BINARY_PATH="${{ env.BINARY_NAME }}" bash install.sh dummy-api-key --dry-run
