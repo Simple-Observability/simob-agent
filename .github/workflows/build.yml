@@ -43,7 +43,7 @@ jobs:
       working-directory: ./agent
 
     - name: Check agent version
-      run: ./simob_${{ github.ref_name }} version
+      run: ./simob-${{ github.ref_name }} version
 
     - name: Run install script
       run: sudo BINARY_PATH="simob-${{ github.ref_name }}" bash install.sh dummy-api-key --dry-run
