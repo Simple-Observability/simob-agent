@@ -32,10 +32,14 @@ echo "[*] Install script invocked by $REAL_USER"
 
 if [[ -z "${BINARY_PATH}" ]]; then
   # Download the last version of the prebuilt binary if BINARY_PATH is not defined
+  OS="$(uname | tr '[:upper:]' '[:lower:]')"
+  ARCH="$(uname -m)"
+  if [[ "$ARCH" == "x86_64" ]]; then
+    ARCH="amd64"
+  fi
   BINARY_URL="https://github.com/Simple-Observability/simob-agent/releases/latest/download/simob-${OS}-${ARCH}"
   DOWNLOAD_DEST="/tmp/"
   DOWNLOAD_FILE="${DOWNLOAD_DEST}/simob-${OS}-${ARCH}"
-
   echo "[*] Downloading binary from $BINARY_URL to $DOWNLOAD_FILE..."
   wget -q --show-progress -O "$DOWNLOAD_FILE" "$BINARY_URL"
   export BINARY_PATH="$DOWNLOAD_FILE"
