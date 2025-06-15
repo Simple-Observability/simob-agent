@@ -32,12 +32,13 @@ echo "[*] Install script invocked by $REAL_USER"
 
 if [[ -z "${BINARY_PATH}" ]]; then
   # Download the last version of the prebuilt binary if BINARY_PATH is not defined
-  # FIXME: this doesn't work
-  echo "BINARY_PATH not defined, downloading binary..."
-  BINARY_URL="https://github.com/${GITHUB_USER}/${REPO_NAME}/releases/latest/download/simob-${OS}-${ARCH}"
+  BINARY_URL="https://github.com/Simple-Observability/simob-agent/releases/latest/download/simob-${OS}-${ARCH}"
   DOWNLOAD_DEST="/tmp/"
-  wget --directory-prefix "$DOWNLOAD_DEST" "$BINARY_URL"
-  export BINARY_PATH="$DOWNLOAD_PATH"
+  DOWNLOAD_FILE="${DOWNLOAD_DEST}/simob-${OS}-${ARCH}"
+
+  echo "[*] Downloading binary from $BINARY_URL to $DOWNLOAD_FILE..."
+  wget -q --show-progress -O "$DOWNLOAD_FILE" "$BINARY_URL"
+  export BINARY_PATH="$DOWNLOAD_FILE"
   echo "Binary downloaded to: $BINARY_PATH"
 else
   # If BINARY_PATH is set, run the install process with an existing binary (either downloaded
@@ -119,6 +120,10 @@ sudo -u $CUSTOM_USER "$INSTALL_PATH" version
 echo "[*] Initializing simob with provided API key..."
 sudo -u $CUSTOM_USER "$INSTALL_PATH" init "$API_KEY" "${@:2}"
 echo "[+] Initialization complete."
+
+echo "[*] Starting simob systemd service..."
+systemctl start simob.service
+echo "[+] simob service started."
 
 echo ""
 echo "[*] Simple Observability (simob) agent has been installed and initialized successfully."

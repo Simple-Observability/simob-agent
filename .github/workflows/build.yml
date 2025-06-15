@@ -35,10 +35,11 @@ jobs:
 
     - name: Build agent binary
       env:
-        VERSION: ${{ github.ref_name }}
+        VERSION: ${{ github.ref_name }}"
+        TARGET: "${{ matrix.os }}-${{ matrix.arch }}"
       run: |
         echo "Building version: $VERSION"
-        go build -ldflags "-X 'agent/internal/version.Version=$VERSION'" -o ../simob_$VERSION main.go
+        go build -ldflags "-X 'agent/internal/version.Version=$VERSION'" -o ../simob-$TARGET main.go
       working-directory: ./agent
 
     - name: Check agent version
@@ -59,5 +60,5 @@ jobs:
         tag_name: ${{ github.ref_name }}
         name: Release ${{ github.ref_name }}
         files: |
-          simob_${{ github.ref_name }}
+          simob-${{ matrix.os }}-${{ matrix.arch }}
           install.sh
