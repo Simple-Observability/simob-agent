@@ -1,0 +1,63 @@
+name: Build
+
+on:
+  push:
+    branches: [ "master" ]
+    tags: [ "*" ]
+  pull_request:
+    branches: [ "master" ]
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+        arch: [amd64]
+    runs-on: ${{ matrix.os }}
+
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.24'
+        cache-dependency-path: ./agent/go.sum
+
+    - name: Install dependencies
+      run: go mod download
+      working-directory: ./agent
+
+    - name: Build agent binary
+      env:
+        VERSION: ${{ github.ref_name }}
+      run: |
+        echo "Building version: $VERSION"
+        go build -ldflags "-X 'agent/internal/version.Version=$VERSION'" -o ../simob_$VERSION main.go
+      working-directory: ./agent
+
+    - name: Check agent version
+      run: ./simob_${{ github.ref_name }} version
+
+    - name: Run install script
+      run: sudo BINARY_PATH="simob_${{ github.ref_name }}" bash install.sh dummy-api-key --dry-run
+
+    - name: Run agent
+      run: |
+        DEBUG=1 simob version
+        DEBUG=1 simob config
+
+    - name: Create GitHub Release
+      if: github.ref_type == 'tag'
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: ${{ github.ref_name }}
+        name: Release ${{ github.ref_name }}
+        files: |
+          simob_${{ github.ref_name }}
+          install.sh
