@@ -58,6 +58,15 @@ jobs:
         DEBUG=1 simob version
         DEBUG=1 simob config
 
+    - name: Upload develop branch artifacts
+      if: github.ref_name == 'develop'
+      uses: actions/upload-artifact@v4
+      with:
+        name: preview-build-${{ github.sha }}
+        path: |
+          ${{ env.BINARY_NAME }}
+          install.sh
+
     - name: Create GitHub Release
       if: github.ref_type == 'tag'
       uses: softprops/action-gh-release@v1
