@@ -66,6 +66,8 @@ func showConfig() {
 	fmt.Printf("Current configuration:\n")
 	fmt.Printf("  api_key = %s\n", cfg.APIKey)
 	fmt.Printf("  api_url = %s\n", cfg.APIUrl)
+	fmt.Printf("  logs_export_url = %s\n", cfg.LogsExportUrl)
+	fmt.Printf("  metrics_export_url = %s\n", cfg.MetricsExportUrl)
 }
 
 func setConfigValue(key, value string) error {
@@ -81,6 +83,10 @@ func setConfigValue(key, value string) error {
 		cfg.SetAPIKey(value)
 	case "api_url":
 		cfg.SetAPIUrl(value)
+	case "logs_export_url":
+		cfg.SetLogsExportUrl(value)
+	case "metrics_export_url":
+		cfg.SetMetricsExportUrl(value)
 	default:
 		return fmt.Errorf("unknown config key: %s", key)
 	}
