@@ -98,8 +98,8 @@ func NewExporter(dryRun bool) (*Exporter, error) {
 
 	e := &Exporter{
 		apiKey:     cfg.APIKey,
-		metricsURL: "https://metrics.simpleobservability.com/",
-		logsURL:    "https://logs.simpleobservability.com/",
+		metricsURL: cfg.MetricsExportUrl,
+		logsURL:    cfg.LogsExportUrl,
 		httpClient: &http.Client{
 			Timeout: 10 * time.Second,
 		},
