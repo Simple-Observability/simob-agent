@@ -24,6 +24,7 @@ func (c *CPUCollector) Name() string {
 	return "cpu"
 }
 
+// FIXME: Important, SINGLE SOURCE OF TRUTH FOR MERTIC NAMES
 func (c *CPUCollector) Collect() ([]metrics.DataPoint, error) {
 	all, err := c.CollectAll()
 	if err != nil {
