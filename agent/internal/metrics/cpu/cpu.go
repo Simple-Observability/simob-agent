@@ -21,7 +21,6 @@ func (c *CPUCollector) Name() string {
 	return "cpu"
 }
 
-// FIXME: Important, SINGLE SOURCE OF TRUTH FOR MERTIC NAMES
 func (c *CPUCollector) Collect() ([]metrics.DataPoint, error) {
 	// Capture timestamp once for consistency across all datapoints
 	timestamp := time.Now().UnixMilli()
@@ -123,7 +122,7 @@ func (c *CPUCollector) Collect() ([]metrics.DataPoint, error) {
 			{"cpu_softirq_ratio", deltaSoftirq / totalCore},
 			{"cpu_steal_ratio", deltaSteal / totalCore},
 			{"cpu_guest_ratio", deltaGuest / totalCore},
-			{"cpu_guest_nice_ratio", deltaGuestNice / totalCore},
+			{"cpu_guestNice_ratio", deltaGuestNice / totalCore},
 		}
 		for _, m := range metricsToAdd {
 			results = append(results, metrics.DataPoint{
@@ -154,7 +153,7 @@ func (c *CPUCollector) Collect() ([]metrics.DataPoint, error) {
 			{"cpu_softirq_ratio", totalSoftirq / totalAllCores},
 			{"cpu_steal_ratio", totalSteal / totalAllCores},
 			{"cpu_guest_ratio", totalGuest / totalAllCores},
-			{"cpu_guest_nice_ratio", totalGuestNice / totalAllCores},
+			{"cpu_guestNice_ratio", totalGuestNice / totalAllCores},
 		}
 		for _, m := range metricsToAdd {
 			results = append(results, metrics.DataPoint{
