@@ -41,7 +41,7 @@ if [[ -z "${BINARY_PATH}" ]]; then
   DOWNLOAD_DEST="/tmp/"
   DOWNLOAD_FILE="${DOWNLOAD_DEST}/simob-${OS}-${ARCH}"
   echo "[*] Downloading binary from $BINARY_URL to $DOWNLOAD_FILE..."
-  wget -q --show-progress -O "$DOWNLOAD_FILE" "$BINARY_URL"
+  curl -# -L -o "$DOWNLOAD_FILE" "$BINARY_URL"
   export BINARY_PATH="$DOWNLOAD_FILE"
   echo "Binary downloaded to: $BINARY_PATH"
 else

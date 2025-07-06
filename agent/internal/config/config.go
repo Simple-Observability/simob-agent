@@ -11,18 +11,24 @@ import (
 )
 
 type Config struct {
-	APIKey string `json:"api_key"`
-	APIUrl string `json:"api_url"`
+	APIKey           string `json:"api_key"`
+	APIUrl           string `json:"api_url"`
+	LogsExportUrl    string `json:"logs_export_url"`
+	MetricsExportUrl string `json:"metrics_export_url"`
 }
 
 func NewConfig(apiKey string) *Config {
 	// Defaults
 	defaultAPIUrl := "https://api.simpleobservability.com"
+	defaultLogsExportUrl := "https://logs.simpleobservability.com"
+	defaultMetricsExportUrl := "https://metrics.simpleobservability.com"
 
 	// Start with defaults
 	cfg := &Config{
-		APIKey: apiKey,
-		APIUrl: defaultAPIUrl,
+		APIKey:           apiKey,
+		APIUrl:           defaultAPIUrl,
+		LogsExportUrl:    defaultLogsExportUrl,
+		MetricsExportUrl: defaultMetricsExportUrl,
 	}
 
 	// Try to load existing config file first
@@ -34,6 +40,12 @@ func NewConfig(apiKey string) *Config {
 		}
 		if existingCfg.APIUrl != "" {
 			cfg.APIUrl = existingCfg.APIUrl
+		}
+		if existingCfg.LogsExportUrl != "" {
+			cfg.LogsExportUrl = existingCfg.LogsExportUrl
+		}
+		if existingCfg.MetricsExportUrl != "" {
+			cfg.MetricsExportUrl = existingCfg.MetricsExportUrl
 		}
 	} else {
 		logger.Log.Debug("Failed to open existing config file")
@@ -48,13 +60,11 @@ func NewConfig(apiKey string) *Config {
 	return cfg
 }
 
-func (c *Config) SetAPIKey(apiKey string) {
-	c.APIKey = apiKey
-}
-
-func (c *Config) SetAPIUrl(apiUrl string) {
-	c.APIUrl = apiUrl
-}
+// Setters
+func (c *Config) SetAPIKey(apiKey string)                     { c.APIKey = apiKey }
+func (c *Config) SetAPIUrl(apiUrl string)                     { c.APIUrl = apiUrl }
+func (c *Config) SetLogsExportUrl(logsExportUrl string)       { c.LogsExportUrl = logsExportUrl }
+func (c *Config) SetMetricsExportUrl(metricsExportUrl string) { c.MetricsExportUrl = metricsExportUrl }
 
 func ConfigPath() (string, error) {
 	programDirectory, err := common.GetProgramDirectory()
