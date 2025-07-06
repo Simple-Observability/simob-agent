@@ -11,9 +11,12 @@ jobs:
   build:
     strategy:
       matrix:
-        os: [ubuntu-latest]
-        arch: [amd64]
-    runs-on: ${{ matrix.os }}
+        include:
+        # Linux build on Ubuntu runner
+        - runner: ubuntu-latest
+          os: linux
+          arch: amd64
+    runs-on: ${{ matrix.runner }}
 
     defaults:
       run:
@@ -31,8 +34,7 @@ jobs:
 
     - name: Set Environment Variables
       run: |
-        echo "TARGET=linux-${{ matrix.arch }}" >> $GITHUB_ENV
-        echo "BINARY_NAME=simob-linux-${{ matrix.arch }}" >> $GITHUB_ENV
+        echo "BINARY_NAME=simob-${{matrix.os}}-${{ matrix.arch }}" >> $GITHUB_ENV
         echo "VERSION=${{ github.ref_name }}" >> $GITHUB_ENV
         echo "Go version used: $(go version)"
 
