@@ -188,7 +188,7 @@ func (e *Exporter) appendToSpool(spoolFile string, payload Payload) error {
 	if err != nil {
 		return fmt.Errorf("failed to marshal payload: %w", err)
 	}
-	f, err := os.OpenFile(spoolFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o640)
+	f, err := os.OpenFile(spoolFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o660)
 	if err != nil {
 		return fmt.Errorf("failed to open spool file: %w", err)
 	}
@@ -207,7 +207,7 @@ func (e *Exporter) rewriteSpool(path string, lines []string) error {
 	if len(lines) > 0 {
 		content = strings.Join(lines, "\n") + "\n"
 	}
-	if err := os.WriteFile(tmp, []byte(content), 0o640); err != nil {
+	if err := os.WriteFile(tmp, []byte(content), 0o660); err != nil {
 		return fmt.Errorf("failed to write temp file: %w", err)
 	}
 	if err := os.Rename(tmp, path); err != nil {
