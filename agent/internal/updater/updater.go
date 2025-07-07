@@ -8,6 +8,9 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"runtime"
+	"strconv"
+	"strings"
 	"time"
 
 	"agent/internal/version"
@@ -22,7 +25,7 @@ const tempSuffix = ".new"
 
 // remoteApiUrl is the URL of the remote API that is called to get
 // info about the latest updates.
-const remoteApiUrl = "https://tapi.simpleobservability.com"
+var remoteApiUrl = "https://api.simpleobservability.com"
 
 // UpdateInfo holds information about an available update.
 type UpdateInfo struct {
@@ -37,14 +40,17 @@ func Update() error {
 	fmt.Printf("Current simob version: %s\n", version.Version)
 
 	// Check for updates
+	if envUrl := os.Getenv("API_URL"); envUrl != "" {
+		remoteApiUrl = envUrl
+	}
 	updateInfo, err := checkForUpdate()
 	if err != nil {
 		return fmt.Errorf("error checking for updates: %v", err)
 	}
 	fmt.Printf("%+v\n", *updateInfo)
 
-	if version.Version == updateInfo.Version {
-		fmt.Println("Agent is already up to date.")
+	// Check and compare versions
+	if !targetVersionIsNewer(version.Version, updateInfo.Version) {
 		return nil
 	}
 	fmt.Println("Upgrading to version:", updateInfo.Version)
@@ -102,6 +108,21 @@ func Update() error {
 	return nil
 }
 
+// binaryName returns the name of the binary in the format "simob-<os>-<arch>".
+// It uses the OS and ARCH environment variables if set;
+// otherwise, it falls back to runtime.GOOS and runtime.GOARCH.
+func binaryName() string {
+	goos := os.Getenv("OS")
+	if goos == "" {
+		goos = runtime.GOOS
+	}
+	goarch := os.Getenv("ARCH")
+	if goarch == "" {
+		goarch = runtime.GOARCH
+	}
+	return fmt.Sprintf("simob-%s-%s", goos, goarch)
+}
+
 // checkForUpdate checks the remote API for updates.
 func checkForUpdate() (*UpdateInfo, error) {
 	client := &http.Client{Timeout: 5 * time.Second}
@@ -127,9 +148,37 @@ func checkForUpdate() (*UpdateInfo, error) {
 
 	return &UpdateInfo{
 		Version:     apiResp.Version,
-		DownloadURL: apiResp.URL,
+		DownloadURL: fmt.Sprintf("%s/%s", apiResp.URL, binaryName()),
 		Checksum:    apiResp.Checksum,
 	}, nil
+}
+
+// targetVersionIsNewer compares two semantic version strings in the format "MAJOR.MINOR.PATCH"
+func targetVersionIsNewer(currentVersion, targetVersion string) bool {
+	if currentVersion == "dev" {
+		return true // always update the dev version
+	}
+
+	splitCurrent := strings.Split(currentVersion, ".")
+	splitTarget := strings.Split(targetVersion, ".")
+	if len(splitCurrent) != 3 || len(splitTarget) != 3 {
+		fmt.Printf("Version format error: current=%q target=%q (expected 3 segments)\n", currentVersion, targetVersion)
+		return false
+	}
+	for i := range 3 {
+		currentPart, err1 := strconv.Atoi(splitCurrent[i])
+		targetPart, err2 := strconv.Atoi(splitTarget[i])
+		if err1 != nil || err2 != nil {
+			return false
+		}
+		if targetPart > currentPart {
+			return true
+		} else if targetPart < currentPart {
+			return false
+		}
+	}
+	fmt.Println("Agent is already running the latest version.")
+	return false // versions are equal
 }
 
 // downloadBinary downloads a binary from a URL to a destination path.

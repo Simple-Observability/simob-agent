@@ -75,7 +75,7 @@ func NewExporter(dryRun bool) (*Exporter, error) {
 		return nil, fmt.Errorf("can't create spool directory. failed to get program directory: %w", err)
 	}
 	spoolDir := filepath.Join(programDirectory, "spool")
-	err = os.MkdirAll(spoolDir, 0o755)
+	err = os.MkdirAll(spoolDir, 0o750)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create spool directory: %w", err)
 	}
@@ -98,8 +98,8 @@ func NewExporter(dryRun bool) (*Exporter, error) {
 
 	e := &Exporter{
 		apiKey:     cfg.APIKey,
-		metricsURL: "https://metrics.simpleobservability.com/",
-		logsURL:    "https://logs.simpleobservability.com/",
+		metricsURL: cfg.MetricsExportUrl,
+		logsURL:    cfg.LogsExportUrl,
 		httpClient: &http.Client{
 			Timeout: 10 * time.Second,
 		},
@@ -188,7 +188,7 @@ func (e *Exporter) appendToSpool(spoolFile string, payload Payload) error {
 	if err != nil {
 		return fmt.Errorf("failed to marshal payload: %w", err)
 	}
-	f, err := os.OpenFile(spoolFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
+	f, err := os.OpenFile(spoolFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o640)
 	if err != nil {
 		return fmt.Errorf("failed to open spool file: %w", err)
 	}
@@ -207,7 +207,7 @@ func (e *Exporter) rewriteSpool(path string, lines []string) error {
 	if len(lines) > 0 {
 		content = strings.Join(lines, "\n") + "\n"
 	}
-	if err := os.WriteFile(tmp, []byte(content), 0o600); err != nil {
+	if err := os.WriteFile(tmp, []byte(content), 0o640); err != nil {
 		return fmt.Errorf("failed to write temp file: %w", err)
 	}
 	if err := os.Rename(tmp, path); err != nil {
