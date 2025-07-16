@@ -136,7 +136,7 @@ func (c *CPUCollector) Collect() ([]metrics.DataPoint, error) {
 
 	if totalAllCores > 0 {
 		// Add total (all cores) metric
-		allCoreLabels := map[string]string{"cpu": "all"}
+		allCoreLabels := map[string]string{"cpu": "total"}
 		adjustedTotalUser := totalUser - totalGuest
 		adjustedTotalNice := totalNice - totalGuestNice
 
