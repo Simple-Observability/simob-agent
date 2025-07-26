@@ -23,7 +23,7 @@ runtime dependencies and a one command install process.
 
 You can install the agent with a single command:
 ```bash
-$ curl -fL https://simpleobservability.com/install.sh | sudo bash -s -- <SERVER_KEY>
+$ curl -fsSL https://simpleobservability.com/install.sh | sudo bash -s -- <SERVER_KEY>
 ```
 
 Replace <SERVER_KEY> with the one from your SimpleObservability.com account.
