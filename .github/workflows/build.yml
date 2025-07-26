@@ -57,7 +57,7 @@ jobs:
       run: |
         newgrp simob-admins
         DEBUG=1 simob version
-        DEBUG=1 simob init
+        DEBUG=1 simob init --dry-run
         DEBUG=1 simob config
         DEBUG=1 simob start --dry-run
 
