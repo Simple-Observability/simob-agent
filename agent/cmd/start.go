@@ -11,6 +11,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"agent/internal/exporter"
+	"agent/internal/lifecycle"
 	"agent/internal/logger"
 	"agent/internal/logs"
 	"agent/internal/logs/nginx"
@@ -39,6 +40,9 @@ func Start() {
 	logger.Init(debug)
 	logger.Log.Info("Starting agent...")
 	logger.Log.Debug("DEBUG mode is enabled. Expect verbose logging.")
+
+	// Run init lifecycle
+	lifecycle.RunInit("", dryRun)
 
 	// Create a context to signal when to stop the collectors
 	var ctx context.Context
