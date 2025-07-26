@@ -57,6 +57,7 @@ jobs:
 
     - name: Run agent
       run: |
+        newgrp simob-admins
         DEBUG=1 simob version
         DEBUG=1 simob config
         DEBUG=1 simob start --dry-run
