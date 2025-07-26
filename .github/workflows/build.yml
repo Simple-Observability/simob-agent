@@ -13,9 +13,7 @@ jobs:
       matrix:
         include:
         # Linux build on Ubuntu runner
-        - runner: ubuntu-latest
-          os: linux
-          arch: amd64
+        - { runner: ubuntu-latest, os: linux, arch: amd64 }
     runs-on: ${{ matrix.runner }}
 
     defaults:
