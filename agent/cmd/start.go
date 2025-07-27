@@ -10,16 +10,16 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"agent/internal/api"
+	"agent/internal/collection"
+	"agent/internal/config"
 	"agent/internal/exporter"
 	"agent/internal/lifecycle"
 	"agent/internal/logger"
 	"agent/internal/logs"
-	"agent/internal/logs/nginx"
+	logsRegistry "agent/internal/logs/registry"
 	"agent/internal/metrics"
-	"agent/internal/metrics/cpu"
-	"agent/internal/metrics/disk"
-	"agent/internal/metrics/memory"
-	"agent/internal/metrics/network"
+	metricsRegistry "agent/internal/metrics/registry"
 )
 
 var startCmd = &cobra.Command{
@@ -40,6 +40,30 @@ func Start() {
 	logger.Init(debug)
 	logger.Log.Info("Starting agent...")
 	logger.Log.Debug("DEBUG mode is enabled. Expect verbose logging.")
+
+	// Load config
+	cfg, err := config.Load()
+	if err != nil {
+		logger.Log.Error("failed to load config", "error", err)
+		os.Exit(1)
+	}
+
+	// Initialize API client
+	client := api.NewClient(*cfg)
+	logger.Log.Debug("API client initialized.")
+
+	// Init collection config
+	var clcCfg *collection.CollectionConfig
+	if dryRun {
+		clcCfg = nil
+	} else {
+		var err error
+		clcCfg, err = client.GetCollectionConfig()
+		if err != nil {
+			logger.Log.Error("failed to fetch collection config", "error", err)
+			os.Exit(1)
+		}
+	}
 
 	// Run init lifecycle
 	lifecycle.RunInit("", dryRun)
@@ -68,28 +92,19 @@ func Start() {
 	}
 
 	// Initialize log collectors
-	var logsCollectors []logs.LogCollector
-	logsCollectors = append(logsCollectors,
-		nginx.NewNginxLogCollector(),
-	)
+	logsCollectors := logsRegistry.BuildCollectors(clcCfg)
+	logger.Log.Info("Starting log collectors", "count", len(logsCollectors))
 	wg.Add(1)
 	go logs.StartCollection(logsCollectors, ctx, &wg, exporter)
 
 	// Initialize metrics collectors
-	var metricsCollectors []metrics.MetricCollector
-	metricsCollectors = append(metricsCollectors,
-		cpu.NewCPUCollector(),
-		memory.NewMemoryCollector(),
-		disk.NewDiskCollector(),
-		network.NewNetworkCollector(),
-	)
-
+	metricsCollectors := metricsRegistry.BuildCollectors(clcCfg)
+	// Set metrics collection interval
 	collectionInterval := 60 * time.Second
 	if dryRun {
 		collectionInterval = 3 * time.Second
 	}
-
-	// Start metrics collection goroutine
+	logger.Log.Info("Starting metric collectors", "count", len(metricsCollectors))
 	wg.Add(1)
 	go metrics.StartCollection(metricsCollectors, collectionInterval, ctx, &wg, exporter)
 

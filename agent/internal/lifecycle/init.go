@@ -9,12 +9,9 @@ import (
 	"agent/internal/hostinfo"
 	"agent/internal/logger"
 	"agent/internal/logs"
-	"agent/internal/logs/nginx"
+	logsRegistry "agent/internal/logs/registry"
 	"agent/internal/metrics"
-	"agent/internal/metrics/cpu"
-	"agent/internal/metrics/disk"
-	"agent/internal/metrics/memory"
-	"agent/internal/metrics/network"
+	metricsRegistry "agent/internal/metrics/registry"
 )
 
 func RunInit(apiKey string, dryRun bool) {
@@ -59,19 +56,12 @@ func RunInit(apiKey string, dryRun bool) {
 		}
 	}
 
-	// List all metrics collectors
-	var metricsCollectors []metrics.MetricCollector
-	logger.Log.Info("Attempting to initialize metrics collectors...")
-	metricsCollectors = append(metricsCollectors,
-		cpu.NewCPUCollector(),
-		memory.NewMemoryCollector(),
-		disk.NewDiskCollector(),
-		network.NewNetworkCollector(),
-	)
 	// Discover metrics
 	logger.Log.Info("Detecting available metrics ... ")
+	metricsCollectors := metricsRegistry.BuildCollectors(nil)
 	discoveredMetrics := metrics.DiscoverAvailableMetrics(metricsCollectors)
 	logger.Log.Info("Metrics discovered", slog.Int("count", len(discoveredMetrics)))
+
 	// Send discovered metrics to API
 	if dryRun {
 		logger.Log.Info("Skipping sending discovered metrics to API due to dry run mode.")
@@ -88,16 +78,12 @@ func RunInit(apiKey string, dryRun bool) {
 		}
 	}
 
-	// List all logs collectors
-	logger.Log.Info("Attempting to initialize log collectors...")
-	var logsCollectors []logs.LogCollector
-	logsCollectors = append(logsCollectors,
-		nginx.NewNginxLogCollector(),
-	)
 	// Discover log sources
 	logger.Log.Info("Detecting available log sources ... ")
+	logsCollectors := logsRegistry.BuildCollectors(nil)
 	discoveredLogSources := logs.DiscoverAvailableLogSources(logsCollectors)
 	logger.Log.Info("Log sources discovered", slog.Int("count", len(discoveredLogSources)))
+
 	// Send discovered log sources to API
 	if dryRun {
 		logger.Log.Info("Skipping sending discovered log sources to API due to dry run mode.")

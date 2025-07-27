@@ -12,6 +12,17 @@ func BuildCollectors(cfg *collection.CollectionConfig) []logs.LogCollector {
 		"nginx": nginx.NewNginxLogCollector(),
 	}
 
+	// If cfg is nil, return all collectors
+	if cfg == nil {
+		all := make([]logs.LogCollector, 0, len(collectorMap))
+		for name, collector := range collectorMap {
+			logger.Log.Debug("Including log collector (no config)", "name", name)
+			all = append(all, collector)
+		}
+		return all
+	}
+
+	// Else, return only enabled ones
 	enabled := make(map[string]bool)
 	for _, src := range cfg.LogSources {
 		enabled[src.Name] = true

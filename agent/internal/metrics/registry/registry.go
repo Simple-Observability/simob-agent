@@ -21,6 +21,17 @@ func BuildCollectors(cfg *collection.CollectionConfig) []metrics.MetricCollector
 	}
 
 	var allCollectors []metrics.MetricCollector
+
+	// No config provided, return all collectors
+	if cfg == nil {
+		for prefix, collector := range collectorMap {
+			logger.Log.Debug("Including collector (no config)", "collector", prefix)
+			allCollectors = append(allCollectors, collector)
+		}
+		return allCollectors
+	}
+
+	// Filter based on config
 	for prefix, collector := range collectorMap {
 		var filtered []collection.Metric
 		for _, m := range cfg.Metrics {
