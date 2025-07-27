@@ -43,6 +43,20 @@ var netMetrics = []struct {
 }
 
 func (c *NetworkCollector) Collect() ([]metrics.DataPoint, error) {
+	all, err := c.CollectAll()
+	if err != nil {
+		return nil, err
+	}
+	var included []metrics.DataPoint
+	for _, dp := range all {
+		if c.IsIncluded(dp.Name, dp.Labels) {
+			included = append(included, dp)
+		}
+	}
+	return included, nil
+}
+
+func (c *NetworkCollector) CollectAll() ([]metrics.DataPoint, error) {
 	timestamp := time.Now()
 	ioStats, err := net.IOCounters(true)
 	if err != nil {

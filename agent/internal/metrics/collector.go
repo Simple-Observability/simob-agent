@@ -31,7 +31,11 @@ type MetricCollector interface {
 	// Collect gathers metrics and returns them as a slice of generic data points.
 	Collect() ([]DataPoint, error)
 
+	CollectAll() ([]DataPoint, error)
+
 	SetIncludedMetrics(metrics []collection.Metric)
+
+	IsIncluded(name string, labels map[string]string) bool
 }
 
 // StartCollection initialize a background metrics collection loop that gatherns metrics from a list

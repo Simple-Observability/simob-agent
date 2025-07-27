@@ -42,6 +42,20 @@ var diskMetrics = []struct {
 }
 
 func (c *DiskCollector) Collect() ([]metrics.DataPoint, error) {
+	all, err := c.CollectAll()
+	if err != nil {
+		return nil, err
+	}
+	var included []metrics.DataPoint
+	for _, dp := range all {
+		if c.IsIncluded(dp.Name, dp.Labels) {
+			included = append(included, dp)
+		}
+	}
+	return included, nil
+}
+
+func (c *DiskCollector) CollectAll() ([]metrics.DataPoint, error) {
 	timestamp := time.Now().UnixMilli()
 
 	partitions, err := disk.Partitions(false)

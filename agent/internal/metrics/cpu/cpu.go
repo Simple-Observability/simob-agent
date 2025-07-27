@@ -25,6 +25,20 @@ func (c *CPUCollector) Name() string {
 }
 
 func (c *CPUCollector) Collect() ([]metrics.DataPoint, error) {
+	all, err := c.CollectAll()
+	if err != nil {
+		return nil, err
+	}
+	var included []metrics.DataPoint
+	for _, dp := range all {
+		if c.IsIncluded(dp.Name, dp.Labels) {
+			included = append(included, dp)
+		}
+	}
+	return included, nil
+}
+
+func (c *CPUCollector) CollectAll() ([]metrics.DataPoint, error) {
 	// Capture timestamp once for consistency across all datapoints
 	timestamp := time.Now().UnixMilli()
 
