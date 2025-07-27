@@ -6,10 +6,12 @@ import (
 
 	"github.com/shirou/gopsutil/v4/mem"
 
+	"agent/internal/collection"
 	"agent/internal/metrics"
 )
 
 type MemoryCollector struct {
+	metrics.BaseCollector
 }
 
 func NewMemoryCollector() *MemoryCollector {
@@ -17,7 +19,7 @@ func NewMemoryCollector() *MemoryCollector {
 }
 
 func (c *MemoryCollector) Name() string {
-	return "memory"
+	return "mem"
 }
 
 // memMetrics list the available metrics inside the memory package
@@ -34,6 +36,20 @@ var memMetrics = []struct {
 }
 
 func (c *MemoryCollector) Collect() ([]metrics.DataPoint, error) {
+	all, err := c.CollectAll()
+	if err != nil {
+		return nil, err
+	}
+	var included []metrics.DataPoint
+	for _, dp := range all {
+		if c.IsIncluded(dp.Name, dp.Labels) {
+			included = append(included, dp)
+		}
+	}
+	return included, nil
+}
+
+func (c *MemoryCollector) CollectAll() ([]metrics.DataPoint, error) {
 	timestamp := time.Now().UnixMilli()
 
 	vm, err := mem.VirtualMemory()
@@ -54,16 +70,16 @@ func (c *MemoryCollector) Collect() ([]metrics.DataPoint, error) {
 	return results, nil
 }
 
-func (c *MemoryCollector) Discover() ([]metrics.Metric, error) {
+func (c *MemoryCollector) Discover() ([]collection.Metric, error) {
 	_, err := mem.VirtualMemory()
 	if err != nil {
 		return nil, fmt.Errorf("failed to discover memory metrics: %w", err)
 	}
 
-	var discovered []metrics.Metric
+	var discovered []collection.Metric
 
 	for _, m := range memMetrics {
-		discovered = append(discovered, metrics.Metric{
+		discovered = append(discovered, collection.Metric{
 			Name:   m.name,
 			Type:   "gauge",
 			Unit:   m.unit,

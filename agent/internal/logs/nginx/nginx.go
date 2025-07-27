@@ -4,6 +4,7 @@ import (
 	"context"
 	"path/filepath"
 
+	"agent/internal/collection"
 	"agent/internal/logs"
 )
 
@@ -24,11 +25,11 @@ func (c *NginxLogCollector) Name() string {
 	return c.name
 }
 
-func (c *NginxLogCollector) Discover() []logs.LogSource {
-	sources := []logs.LogSource{}
+func (c *NginxLogCollector) Discover() []collection.LogSource {
+	sources := []collection.LogSource{}
 	files, _ := filepath.Glob(c.pattern)
 	if len(files) > 0 {
-		sources = append(sources, logs.LogSource{Name: c.name, Path: c.pattern})
+		sources = append(sources, collection.LogSource{Name: c.name, Path: c.pattern})
 	}
 	return sources
 }
