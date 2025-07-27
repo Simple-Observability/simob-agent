@@ -1,6 +1,7 @@
 package disk
 
 import (
+	"agent/internal/collection"
 	"agent/internal/logger"
 	"agent/internal/metrics"
 	"fmt"
@@ -13,6 +14,7 @@ import (
 )
 
 type DiskCollector struct {
+	metrics.BaseCollector
 }
 
 func NewDiskCollector() *DiskCollector {
@@ -74,18 +76,18 @@ func (c *DiskCollector) Collect() ([]metrics.DataPoint, error) {
 	return datapoints, nil
 }
 
-func (c *DiskCollector) Discover() ([]metrics.Metric, error) {
+func (c *DiskCollector) Discover() ([]collection.Metric, error) {
 	partitions, err := disk.Partitions(false)
 	if err != nil {
 		return nil, fmt.Errorf("failed to discover disk partitions: %w", err)
 	}
 
-	var discovered []metrics.Metric
+	var discovered []collection.Metric
 	for _, p := range partitions {
 		if isValidPartition(p) {
 			diskLabels := map[string]string{"device": p.Device, "mountpoint": p.Mountpoint}
 			for _, m := range diskMetrics {
-				discovered = append(discovered, metrics.Metric{
+				discovered = append(discovered, collection.Metric{
 					Name:   m.name,
 					Type:   "gauge",
 					Unit:   m.unit,

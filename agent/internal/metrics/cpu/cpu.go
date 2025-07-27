@@ -6,10 +6,13 @@ import (
 
 	"github.com/shirou/gopsutil/v4/cpu"
 
+	"agent/internal/collection"
 	"agent/internal/metrics"
 )
 
 type CPUCollector struct {
+	metrics.BaseCollector
+
 	lastStats []cpu.TimesStat
 }
 
@@ -171,7 +174,7 @@ func (c *CPUCollector) Collect() ([]metrics.DataPoint, error) {
 	return results, nil
 }
 
-func (c *CPUCollector) Discover() ([]metrics.Metric, error) {
+func (c *CPUCollector) Discover() ([]collection.Metric, error) {
 	currStats, err := cpu.Times(true)
 	if err != nil {
 		return nil, fmt.Errorf("failed to discover CPU metrics: %w", err)
@@ -181,11 +184,11 @@ func (c *CPUCollector) Discover() ([]metrics.Metric, error) {
 		"user", "system", "idle", "nice", "iowait",
 		"irq", "softirq", "steal", "guest", "guestNice",
 	}
-	var discovered []metrics.Metric
+	var discovered []collection.Metric
 	// Discover per-core metrics
 	for _, core := range currStats {
 		for _, field := range metricFields {
-			discovered = append(discovered, metrics.Metric{
+			discovered = append(discovered, collection.Metric{
 				Name:   "cpu_" + field + "_ratio",
 				Type:   "gauge",
 				Unit:   "%",
@@ -196,7 +199,7 @@ func (c *CPUCollector) Discover() ([]metrics.Metric, error) {
 
 	// Add aggregate metrics once
 	for _, field := range metricFields {
-		discovered = append(discovered, metrics.Metric{
+		discovered = append(discovered, collection.Metric{
 			Name:   "cpu_" + field + "_ratio",
 			Type:   "gauge",
 			Unit:   "%",

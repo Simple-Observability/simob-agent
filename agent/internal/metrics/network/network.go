@@ -1,6 +1,7 @@
 package network
 
 import (
+	"agent/internal/collection"
 	"agent/internal/metrics"
 	"fmt"
 	"runtime"
@@ -11,6 +12,8 @@ import (
 )
 
 type NetworkCollector struct {
+	metrics.BaseCollector
+
 	lastStats map[string]net.IOCountersStat
 	lastTime  time.Time
 }
@@ -88,20 +91,20 @@ func (c *NetworkCollector) Collect() ([]metrics.DataPoint, error) {
 	return results, nil
 }
 
-func (c *NetworkCollector) Discover() ([]metrics.Metric, error) {
+func (c *NetworkCollector) Discover() ([]collection.Metric, error) {
 	ioStats, err := net.IOCounters(true)
 	if err != nil {
 		return nil, fmt.Errorf("failed to discover network interfaces: %w", err)
 	}
 
-	var discovered []metrics.Metric
+	var discovered []collection.Metric
 	for _, s := range ioStats {
 		if !isValidInterface(s.Name) {
 			continue
 		}
 		labels := map[string]string{"interface": s.Name}
 		for _, m := range netMetrics {
-			discovered = append(discovered, metrics.Metric{
+			discovered = append(discovered, collection.Metric{
 				Name:   m.name,
 				Type:   "gauge",
 				Unit:   m.unit,
