@@ -130,9 +130,13 @@ func Start() {
 						logger.Log.Warn("Failed to hash new config", "error", err)
 						continue
 					}
+					// Config hash changed, so we exit with status 1 to trigger a restart.
+					// Using exit code 1 ensures systemd restarts the agent when Restart=on-failure is set,
+					// which helps users who haven't updated their service to Restart=always.
+					// Although this exit looks like a failure, it’s intentional to reload the new config.
 					if newHash != initialHash {
 						logger.Log.Info("Configuration has changed. Exiting for auto-restart.")
-						os.Exit(0)
+						os.Exit(1)
 					}
 				}
 			}
