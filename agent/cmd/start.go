@@ -34,6 +34,28 @@ func init() {
 	startCmd.Flags().BoolVar(&dryRun, "dry-run", false, "Start a short dry run where collected data is redirected to stdout")
 }
 
+func waitForConfig(ctx context.Context, client *api.Client) (*collection.CollectionConfig, error) {
+	ticker := time.NewTicker(15 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		cfg, err := client.GetCollectionConfig()
+		if err != nil {
+			logger.Log.Error("failed to fetch collection config. retrying in 15s...", "error", err)
+		} else if cfg != nil {
+			logger.Log.Info("Fetched valid collection config.")
+			return cfg, nil
+		}
+
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-ticker.C:
+			continue
+		}
+	}
+}
+
 func Start() {
 	// Initialize logger
 	debug := os.Getenv("DEBUG") == "1"
@@ -48,27 +70,7 @@ func Start() {
 		os.Exit(1)
 	}
 
-	// Initialize API client
-	client := api.NewClient(*cfg)
-	logger.Log.Debug("API client initialized.")
-
-	// Init collection config
-	var clcCfg *collection.CollectionConfig
-	if dryRun {
-		clcCfg = nil
-	} else {
-		var err error
-		clcCfg, err = client.GetCollectionConfig()
-		if err != nil {
-			logger.Log.Error("failed to fetch collection config", "error", err)
-			os.Exit(1)
-		}
-	}
-
-	// Run init lifecycle
-	lifecycle.RunInit("", dryRun)
-
-	// Create a context to signal when to stop the collectors
+	// Create a context to signal when exit
 	var ctx context.Context
 	var cancel context.CancelFunc
 	if dryRun {
@@ -79,6 +81,25 @@ func Start() {
 		ctx, cancel = context.WithCancel(context.Background())
 	}
 	defer cancel()
+
+	// Initialize API client
+	client := api.NewClient(*cfg)
+	logger.Log.Debug("API client initialized.")
+
+	// Run init lifecycle
+	lifecycle.RunInit("", dryRun)
+
+	// Init collection config
+	var clcCfg *collection.CollectionConfig
+	if dryRun {
+		clcCfg = nil
+	} else {
+		clcCfg, err = waitForConfig(ctx, client)
+		if err != nil {
+			logger.Log.Error("exiting due to config wait failure", "error", err)
+			os.Exit(1)
+		}
+	}
 
 	// Used to wait for collectors to exit/stop
 	var wg sync.WaitGroup
