@@ -54,6 +54,9 @@ func NewConfig(apiKey string) *Config {
 	// Finally, override with provided apiKey parameter if it's not empty
 	if apiKey != "" {
 		cfg.APIKey = apiKey
+		logger.Log.Debug("Overriding API key")
+	} else {
+		logger.Log.Debug("apiKey parameter is empty. Leave API key as is.")
 	}
 
 	logger.Log.Debug("Config created", slog.Any("cfg", cfg))
