@@ -10,6 +10,7 @@ import (
 	"agent/internal/metrics/disk"
 	"agent/internal/metrics/memory"
 	"agent/internal/metrics/network"
+	"agent/internal/metrics/status"
 )
 
 func BuildCollectors(cfg *collection.CollectionConfig) []metrics.MetricCollector {
@@ -21,6 +22,7 @@ func BuildCollectors(cfg *collection.CollectionConfig) []metrics.MetricCollector
 	}
 
 	var allCollectors []metrics.MetricCollector
+	allCollectors = append(allCollectors, status.NewStatusCollector())
 
 	// No config provided, return all collectors
 	if cfg == nil {
