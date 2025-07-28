@@ -110,7 +110,7 @@ func Start() {
 		}
 
 		go func() {
-			ticker := time.NewTicker(5 * time.Second)
+			ticker := time.NewTicker(5 * time.Minute)
 			defer ticker.Stop()
 			for {
 				select {
