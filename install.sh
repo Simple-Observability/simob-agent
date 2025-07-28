@@ -89,7 +89,7 @@ After=network.target
 [Service]
 Type=simple
 ExecStart=${INSTALL_PATH} start
-Restart=on-failure
+Restart=always
 User=${CUSTOM_USER}
 Group=${CUSTOM_GROUP}
 
