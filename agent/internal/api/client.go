@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strconv"
 	"time"
 
 	"agent/internal/collection"
@@ -30,7 +31,11 @@ func NewClient(cfg config.Config) *Client {
 }
 
 func (c *Client) GetCollectionConfig() (*collection.CollectionConfig, error) {
-	res, err := c.get("/configs/")
+	// Add cache buster param with current timestamp (ms)
+	cb := strconv.FormatInt(time.Now().UnixNano()/int64(time.Millisecond), 10)
+	path := "/configs/?cb=" + cb
+
+	res, err := c.get(path)
 	if err != nil {
 		return nil, err
 	}

@@ -101,6 +101,44 @@ func Start() {
 		}
 	}
 
+	// Start config watcher
+	if !dryRun && clcCfg != nil {
+		initialHash, err := clcCfg.Hash()
+		if err != nil {
+			logger.Log.Error("failed to compute initial config hash", "error", err)
+			os.Exit(1)
+		}
+
+		go func() {
+			ticker := time.NewTicker(5 * time.Second)
+			defer ticker.Stop()
+			for {
+				select {
+				case <-ctx.Done():
+					return
+				case <-ticker.C:
+					newCfg, err := client.GetCollectionConfig()
+					if err != nil {
+						logger.Log.Warn("Failed to fetch config for change detection", "error", err)
+						continue
+					}
+					if newCfg == nil {
+						continue
+					}
+					newHash, err := newCfg.Hash()
+					if err != nil {
+						logger.Log.Warn("Failed to hash new config", "error", err)
+						continue
+					}
+					if newHash != initialHash {
+						logger.Log.Info("Configuration has changed. Exiting for auto-restart.")
+						os.Exit(0)
+					}
+				}
+			}
+		}()
+	}
+
 	// Used to wait for collectors to exit/stop
 	var wg sync.WaitGroup
 
