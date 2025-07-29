@@ -75,7 +75,7 @@ func NewExporter(dryRun bool) (*Exporter, error) {
 		return nil, fmt.Errorf("can't create spool directory. failed to get program directory: %w", err)
 	}
 	spoolDir := filepath.Join(programDirectory, "spool")
-	err = os.MkdirAll(spoolDir, 0o750)
+	err = os.MkdirAll(spoolDir, 0o770)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create spool directory: %w", err)
 	}

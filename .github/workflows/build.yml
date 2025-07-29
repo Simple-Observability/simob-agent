@@ -13,9 +13,7 @@ jobs:
       matrix:
         include:
         # Linux build on Ubuntu runner
-        - runner: ubuntu-latest
-          os: linux
-          arch: amd64
+        - { runner: ubuntu-latest, os: linux, arch: amd64 }
     runs-on: ${{ matrix.runner }}
 
     defaults:
@@ -57,8 +55,11 @@ jobs:
 
     - name: Run agent
       run: |
+        newgrp simob-admins
         DEBUG=1 simob version
+        DEBUG=1 simob init --dry-run
         DEBUG=1 simob config
+        DEBUG=1 simob start --dry-run
 
     - name: Upload dev branch artifacts
       if: github.ref_name == 'dev'

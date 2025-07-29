@@ -6,18 +6,10 @@ import (
 	"sync"
 	"time"
 
+	"agent/internal/collection"
 	"agent/internal/exporter"
 	"agent/internal/logger"
 )
-
-// Metric represents a type of measurement collected by a metric collector.
-type Metric struct {
-	Name   string            `json:"name"`
-	Type   string            `json:"type"`
-	Value  float64           `json:"value"`
-	Unit   string            `json:"unit"`
-	Labels map[string]string `json:"labels"`
-}
 
 // DataPoint represent a single measurement of a metric
 type DataPoint struct {
@@ -34,10 +26,16 @@ type MetricCollector interface {
 
 	// Discover reports the available metric this collector can produce
 	// It is called during agent initialization to inform config/build process.
-	Discover() ([]Metric, error)
+	Discover() ([]collection.Metric, error)
 
 	// Collect gathers metrics and returns them as a slice of generic data points.
 	Collect() ([]DataPoint, error)
+
+	CollectAll() ([]DataPoint, error)
+
+	SetIncludedMetrics(metrics []collection.Metric)
+
+	IsIncluded(name string, labels map[string]string) bool
 }
 
 // StartCollection initialize a background metrics collection loop that gatherns metrics from a list
@@ -79,8 +77,8 @@ func StartCollection(
 }
 
 // discoverAvailableMetrics runs discovery on all collectors and returns all available metrics.
-func DiscoverAvailableMetrics(collectors []MetricCollector) []Metric {
-	var results []Metric
+func DiscoverAvailableMetrics(collectors []MetricCollector) []collection.Metric {
+	var results []collection.Metric
 	for _, collector := range collectors {
 		discovered, err := collector.Discover()
 		if err != nil {

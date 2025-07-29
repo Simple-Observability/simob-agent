@@ -5,14 +5,10 @@ import (
 	"strconv"
 	"sync"
 
+	"agent/internal/collection"
 	"agent/internal/exporter"
 	"agent/internal/logger"
 )
-
-type LogSource struct {
-	Name string `json:"name"`
-	Path string `json:"path"`
-}
 
 // RawLogLine carries a raw log line and its origin
 // and is emitted by log collectors
@@ -36,7 +32,7 @@ type LogCollector interface {
 
 	// Discover reports the available log sources this collector can produce
 	// It is called during agent initialization to inform config/build process.
-	Discover() []LogSource
+	Discover() []collection.LogSource
 
 	// Start begins the log collection process for all discovered log sources.
 	// This could involve tailing files, polling APIs, or listening to sockets.
@@ -100,8 +96,8 @@ func StartCollection(
 	}
 }
 
-func DiscoverAvailableLogSources(collectors []LogCollector) []LogSource {
-	var results []LogSource
+func DiscoverAvailableLogSources(collectors []LogCollector) []collection.LogSource {
+	var results []collection.LogSource
 	for _, collector := range collectors {
 		discovered := collector.Discover()
 		results = append(results, discovered...)
