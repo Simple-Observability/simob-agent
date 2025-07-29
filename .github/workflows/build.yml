@@ -12,8 +12,8 @@ jobs:
     strategy:
       matrix:
         include:
-        # Linux build on Ubuntu runner
         - { runner: ubuntu-latest, os: linux, arch: amd64 }
+        - { runner: ubuntu-latest, os: linux, arch: arm64 }
     runs-on: ${{ matrix.runner }}
 
     defaults:
@@ -32,7 +32,7 @@ jobs:
 
     - name: Set Environment Variables
       run: |
-        echo "BINARY_NAME=simob-${{matrix.os}}-${{ matrix.arch }}" >> $GITHUB_ENV
+        echo "BINARY_NAME=simob-${{ matrix.os }}-${{ matrix.arch }}" >> $GITHUB_ENV
         echo "VERSION=${{ github.ref_name }}" >> $GITHUB_ENV
         echo "Go version used: $(go version)"
 
@@ -44,7 +44,7 @@ jobs:
       run: |
         echo "Building version: ${{ env.VERSION }}"
         echo "Output binary name: ../${{ env.BINARY_NAME }}"
-        go build -ldflags "-X 'agent/internal/version.Version=${{ env.VERSION }}'" -o ../${{ env.BINARY_NAME }} main.go
+        GOOS=${{ matrix.os }} GOARCH=${{ matrix.arch }} go build -ldflags "-X 'agent/internal/version.Version=${{ env.VERSION }}'" -o ../${{ env.BINARY_NAME }} main.go
       working-directory: ./agent
 
     - name: Check agent version
