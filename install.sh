@@ -100,7 +100,7 @@ CapabilityBoundingSet=CAP_DAC_READ_SEARCH
 # Prevent gaining any further privileges
 NoNewPrivileges=yes
 # Mount /usr, /boot, /etc read-only
-ProtectSystem=strict
+ProtectSystem=full
 # Isolate /home, /root, /run/user
 ProtectHome=yes
 # Private /tmp and /var/tmp
