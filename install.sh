@@ -97,11 +97,14 @@ Group=${CUSTOM_GROUP}
 AmbientCapabilities=CAP_DAC_READ_SEARCH
 CapabilityBoundingSet=CAP_DAC_READ_SEARCH
 
-# Defense-in-depth hardening
-NoNewPrivileges=yes           # Prevent gaining any further privileges
-ProtectSystem=strict          # Mount /usr, /boot, /etc read-only
-ProtectHome=yes               # Isolate /home, /root, /run/user
-PrivateTmp=true               # Private /tmp and /var/tmp
+# Prevent gaining any further privileges
+NoNewPrivileges=yes
+# Mount /usr, /boot, /etc read-only
+ProtectSystem=strict
+# Isolate /home, /root, /run/user
+ProtectHome=yes
+# Private /tmp and /var/tmp
+PrivateTmp=true
 
 [Install]
 WantedBy=multi-user.target
