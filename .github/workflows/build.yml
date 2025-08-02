@@ -93,7 +93,7 @@ jobs:
 
   create-release:
     name: Create GitHub Release
-    needs: run-and-test
+    needs: install-and-run
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && github.ref_type == 'tag'
     permissions:
