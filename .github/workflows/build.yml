@@ -7,7 +7,7 @@ on:
 
 jobs:
   build:
-    name: "Build binaries (cross-compiling all architectures)"
+    name: "Build (${{ matrix.os }}/${{ matrix.arch }})"
     strategy:
       matrix:
         include:
@@ -56,7 +56,7 @@ jobs:
         if-no-files-found: error
 
   install-and-run:
-    name: Install and run agent on ${{ matrix.runner }}
+    name: Test (${{ matrix.os }}/${{ matrix.arch }})
     needs: build
     strategy:
       matrix:
