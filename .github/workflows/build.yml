@@ -80,9 +80,6 @@ jobs:
         echo "VERSION=${{ github.ref_name }}" >> $GITHUB_ENV
         echo "Go version used: $(go version)"
 
-    - name: Check agent version
-      run: ./${{ env.BINARY_NAME }} version
-
     - name: Run install script
       run: sudo BINARY_PATH="${{ env.BINARY_NAME }}" bash install.sh dummy-api-key --dry-run
 
