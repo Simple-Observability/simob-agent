@@ -7,11 +7,13 @@ on:
 
 jobs:
   build:
+    name: "Build binaries (cross-compiling all architectures)"
     strategy:
       matrix:
         include:
-        - { runner: ubuntu-latest, os: linux, arch: amd64 }
-    runs-on: ${{ matrix.runner }}
+        - { os: linux, arch: amd64 }
+        - { os: linux, arch: arm64 }
+    runs-on: ubuntu-latest
 
     defaults:
       run:
@@ -44,6 +46,40 @@ jobs:
         GOOS=${{ matrix.os }} GOARCH=${{ matrix.arch }} go build -ldflags "-X 'agent/internal/version.Version=${{ env.VERSION }}'" -o ../${{ env.BINARY_NAME }} main.go
       working-directory: ./agent
 
+    - name: Upload artifact (${{ matrix.os }} ${{ matrix.arch }})
+      uses: actions/upload-artifact@v4
+      with:
+        name: preview-${{ matrix.os }}-${{ matrix.arch }}-${{ github.ref_name }}
+        path: |
+          ./${{ env.BINARY_NAME }}
+          install.sh
+        if-no-files-found: error
+
+  install-and-run:
+    name: Install and run agent on ${{ matrix.runner }}
+    needs: build
+    strategy:
+      matrix:
+        include:
+          - { runner: 'ubuntu-latest', os: 'linux', arch: 'amd64' }
+          - { runner: 'self-hosted', os: 'linux', arch: 'arm64' }
+    runs-on: ${{ matrix.runner }}
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Download agent artifact
+      uses: actions/download-artifact@v4
+      with:
+        name: preview-${{ matrix.os }}-${{ matrix.arch }}-${{ github.ref_name }}
+
+    - name: Set Environment Variables
+      run: |
+        echo "BINARY_NAME=simob-${{ matrix.os }}-${{ matrix.arch }}" >> $GITHUB_ENV
+        echo "VERSION=${{ github.ref_name }}" >> $GITHUB_ENV
+        echo "Go version used: $(go version)"
+
     - name: Check agent version
       run: ./${{ env.BINARY_NAME }} version
 
@@ -57,22 +93,3 @@ jobs:
         DEBUG=1 simob init --dry-run
         DEBUG=1 simob config
         DEBUG=1 simob start --dry-run
-
-    - name: Upload dev branch artifacts
-      if: github.ref_name == 'dev'
-      uses: actions/upload-artifact@v4
-      with:
-        name: preview-build-${{ github.sha }}
-        path: |
-          ${{ env.BINARY_NAME }}
-          install.sh
-
-    - name: Create GitHub Release
-      if: github.ref_type == 'tag'
-      uses: softprops/action-gh-release@v1
-      with:
-        tag_name: ${{ github.ref_name }}
-        name: Release ${{ github.ref_name }}
-        files: |
-          ${{ env.BINARY_NAME }}
-          install.sh
