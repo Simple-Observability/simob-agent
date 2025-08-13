@@ -35,13 +35,13 @@ func init() {
 }
 
 func waitForConfig(ctx context.Context, client *api.Client) (*collection.CollectionConfig, error) {
-	ticker := time.NewTicker(15 * time.Second)
+	ticker := time.NewTicker(5 * time.Second)
 	defer ticker.Stop()
 
 	for {
 		cfg, err := client.GetCollectionConfig()
 		if err != nil {
-			logger.Log.Error("failed to fetch collection config. retrying in 15s...", "error", err)
+			logger.Log.Error("failed to fetch collection config. retrying in 5s...", "error", err)
 		} else if cfg != nil {
 			logger.Log.Info("Fetched valid collection config.")
 			return cfg, nil
