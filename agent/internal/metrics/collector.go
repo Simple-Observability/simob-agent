@@ -51,6 +51,20 @@ func StartCollection(
 	// Signal completion on exit
 	defer wg.Done()
 
+	collectAndExport := func() {
+		metrics := performCollection(collectors)
+		payload := convertDataPointsToPayloads(metrics)
+		err := exporter.ExportMetric(payload)
+		if err != nil {
+			logger.Log.Error("failed to export metrics payload", "error", err)
+		} else {
+			logger.Log.Debug("Metrics collected", "count", len(metrics))
+		}
+	}
+
+	// Perform initial collection immediately
+	collectAndExport()
+
 	// Create ticker and ensure is stopped when function exits
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
@@ -60,14 +74,7 @@ func StartCollection(
 		select {
 		// Perform collection when the ticker fires
 		case <-ticker.C:
-			metrics := performCollection(collectors)
-			payload := convertDataPointsToPayloads(metrics)
-			err := exporter.ExportMetric(payload)
-			if err != nil {
-				logger.Log.Error("failed to export metrics payload", "error", err)
-			}
-			logger.Log.Debug("Metrics collected", "count", len(metrics))
-
+			collectAndExport()
 		// Exit loop when stop signal fires
 		case <-ctx.Done():
 			logger.Log.Info("Metrics collection received stop signal.")
