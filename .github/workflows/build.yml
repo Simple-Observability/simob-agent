@@ -42,7 +42,7 @@ jobs:
     - name: Build agent binary
       run: |
         echo "Building version: ${{ env.VERSION }}"
-        echo "Output binary name: ../${{ env.BINARY_NAME }}"
+        echo "Output binary name: ${{ env.BINARY_NAME }}"
         GOOS=${{ matrix.os }} GOARCH=${{ matrix.arch }} go build -ldflags "-X 'agent/internal/version.Version=${{ env.VERSION }}'" -o ../${{ env.BINARY_NAME }} main.go
       working-directory: ./agent
 
@@ -73,6 +73,9 @@ jobs:
       uses: actions/download-artifact@v4
       with:
         name: preview-${{ matrix.os }}-${{ matrix.arch }}
+
+    - name: List downloaded files
+      run: ls -l
 
     - name: Set Environment Variables
       run: |
