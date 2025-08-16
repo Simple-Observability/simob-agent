@@ -92,12 +92,11 @@ jobs:
           echo "Binary not found at /opt/simob/simob"
           exit 1
         fi
-
-        # Check if /opt/simob is in PATH
-        if echo "$PATH" | grep -q "/opt/simob"; then
-          echo "/opt/simob is in PATH"
+        # Check if symlink exists
+        if [ -L /usr/local/bin/simob ]; then
+          echo "Symlink exists at /usr/local/bin/simob"
         else
-          echo "/opt/simob not in PATH"
+          echo "Symlink /usr/local/bin/simob not found"
           exit 1
         fi
 
