@@ -83,6 +83,24 @@ jobs:
     - name: Run install script
       run: sudo BINARY_PATH="${{ env.BINARY_NAME }}" bash install.sh dummy-api-key --dry-run
 
+    - name: Check install
+      run: |
+        # Check if the binary exists
+        if [ -f /opt/simob/simob ]; then
+          echo "Binary exists at /opt/simob/simob"
+        else
+          echo "Binary not found at /opt/simob/simob"
+          exit 1
+        fi
+
+        # Check if /opt/simob is in PATH
+        if echo "$PATH" | grep -q "/opt/simob"; then
+          echo "/opt/simob is in PATH"
+        else
+          echo "/opt/simob not in PATH"
+          exit 1
+        fi
+
     - name: Run agent
       run: |
         newgrp simob-admins
