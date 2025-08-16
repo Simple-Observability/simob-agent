@@ -88,6 +88,8 @@ jobs:
 
     - name: Check install
       run: |
+        # List files inside install directory
+        ls -l /opt/simob
         # Check if the binary exists
         if [ -f /opt/simob/simob ]; then
           echo "Binary exists at /opt/simob/simob"
