@@ -4,8 +4,6 @@ import (
 	"agent/internal/collection"
 	"agent/internal/metrics"
 	"fmt"
-	"runtime"
-	"strings"
 	"time"
 
 	"github.com/shirou/gopsutil/v4/net"
@@ -66,9 +64,7 @@ func (c *NetworkCollector) CollectAll() ([]metrics.DataPoint, error) {
 	if c.lastStats == nil {
 		c.lastStats = make(map[string]net.IOCountersStat)
 		for _, s := range ioStats {
-			if isValidInterface(s.Name) {
-				c.lastStats[s.Name] = s
-			}
+			c.lastStats[s.Name] = s
 		}
 		c.lastTime = timestamp
 		return []metrics.DataPoint{}, nil
@@ -81,9 +77,6 @@ func (c *NetworkCollector) CollectAll() ([]metrics.DataPoint, error) {
 
 	var results []metrics.DataPoint
 	for _, s := range ioStats {
-		if !isValidInterface(s.Name) {
-			continue
-		}
 		prev, ok := c.lastStats[s.Name]
 		if !ok {
 			continue
@@ -113,9 +106,6 @@ func (c *NetworkCollector) Discover() ([]collection.Metric, error) {
 
 	var discovered []collection.Metric
 	for _, s := range ioStats {
-		if !isValidInterface(s.Name) {
-			continue
-		}
 		labels := map[string]string{"interface": s.Name}
 		for _, m := range netMetrics {
 			discovered = append(discovered, collection.Metric{
@@ -127,39 +117,4 @@ func (c *NetworkCollector) Discover() ([]collection.Metric, error) {
 		}
 	}
 	return discovered, nil
-}
-
-func isValidInterface(name string) bool {
-	if runtime.GOOS == "darwin" {
-		ignored := []string{
-			"lo",         // Loopback (localhost)
-			"gif", "stf", //	IPv6/IPv4 tunneling
-			"anpi", "ap", "awdl", // Access point and Apple wireless direct link
-			"llw",    // Low-latency WLAN
-			"utun",   // Tunneling (VPNn etc)
-			"vmenet", // VM
-			"bridge",
-		}
-		for _, p := range ignored {
-			if strings.HasPrefix(name, p) {
-				return false
-			}
-		}
-	}
-	if runtime.GOOS == "linux" {
-		ignored := []string{
-			"lo",     // Loopback (localhost)
-			"docker", // docker0, default Docker bridge
-			"veth",   // Virtual ethernet pair
-			"br-",    // Custom Docker bridge networks
-			"vmnet",  // VM
-			"virbr",  // VM
-		}
-		for _, p := range ignored {
-			if strings.HasPrefix(name, p) {
-				return false
-			}
-		}
-	}
-	return true
 }
