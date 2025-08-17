@@ -95,6 +95,7 @@ jobs:
         getent group simob-admins || echo "Group simob-admins not found"
 
         echo "Checking membership of invoking user:"
+        newgrp simob-admins
         id $SUDO_USER || id $(whoami)
         echo "================================"
 
