@@ -83,47 +83,12 @@ jobs:
     - name: Run install script
       run: sudo BINARY_PATH="${{ env.BINARY_NAME }}" bash install.sh dummy-api-key --dry-run
 
-    - name: Check install
-      run: |
-        # New debug info for users and groups
-        echo "==== User and group info ===="
-
-        echo "Listing simob user:"
-        id simob-agent || echo "User simob-agent not found"
-
-        echo "Listing simob group:"
-        getent group simob-admins || echo "Group simob-admins not found"
-
-        echo "Checking membership of invoking user:"
-        id $SUDO_USER || id $(whoami)
-        echo "================================"
-
-        # List files inside install directory
-        sudo -u simob-agent ls -l /opt/simob
-
-        # Check if the binary exists
-        if [ -f /opt/simob/simob ]; then
-          echo "Binary exists at /opt/simob/simob"
-        else
-          echo "Binary not found at /opt/simob/simob"
-          exit 1
-        fi
-
-        # Check if symlink exists
-        if [ -L /usr/local/bin/simob ]; then
-          echo "Symlink exists at /usr/local/bin/simob"
-        else
-          echo "Symlink /usr/local/bin/simob not found"
-          exit 1
-        fi
-
     - name: Run agent
       run: |
-        newgrp simob-admins
-        DEBUG=1 simob version
-        DEBUG=1 simob init --dry-run
-        DEBUG=1 simob config
-        DEBUG=1 simob start --dry-run
+        sudo -u simob-agent env DEBUG=1 simob version
+        sudo -u simob-agent envDEBUG=1 simob init --dry-run
+        sudo -u simob-agent envDEBUG=1 simob config
+        sudo -u simob-agent envDEBUG=1 simob start --dry-run
 
   create-release:
     name: Create GitHub Release
