@@ -111,7 +111,7 @@ func (c *MemoryCollector) Discover() ([]collection.Metric, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to discover swap metrics: %w", err)
 	}
-	for _, m := range memMetrics {
+	for _, m := range swapMetrics {
 		discovered = append(discovered, collection.Metric{
 			Name:   m.name,
 			Type:   "gauge",
