@@ -7,10 +7,14 @@ import (
 )
 
 type HostInfo struct {
-	Hostname     string `json:"hostname"`
-	OS           string `json:"os"`
-	Arch         string `json:"architecture"`
-	AgentVersion string `json:"agent_version"`
+	Hostname        string `json:"hostname"`
+	OS              string `json:"os"`
+	Platform        string `json:"platform"`
+	PlatformFamily  string `json:"platform_family"`
+	PlatformVersion string `json:"platform_version"`
+	KernelVersion   string `json:"kernel_version"`
+	Arch            string `json:"architecture"`
+	AgentVersion    string `json:"agent_version"`
 }
 
 func Gather() (*HostInfo, error) {
@@ -20,10 +24,14 @@ func Gather() (*HostInfo, error) {
 	}
 
 	info := &HostInfo{
-		Hostname:     hInfo.Hostname,
-		OS:           hInfo.OS,
-		Arch:         hInfo.KernelArch,
-		AgentVersion: version.Version,
+		Hostname:        hInfo.Hostname,
+		OS:              hInfo.OS,
+		Platform:        hInfo.Platform,
+		PlatformFamily:  hInfo.PlatformFamily,
+		PlatformVersion: hInfo.PlatformVersion,
+		KernelVersion:   hInfo.KernelVersion,
+		Arch:            hInfo.KernelArch,
+		AgentVersion:    version.Version,
 	}
 	return info, nil
 }

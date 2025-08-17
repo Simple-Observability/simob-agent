@@ -77,6 +77,10 @@ You can interact with it using the following commands:
 The agent collects basic information about the host machine to provide context for metrics and logs:
 - Hostname
 - Operating system
+- Platform: Name of the OS distribution (e.g., Ubuntu, CentOS)
+- Platform family: High-level OS family (e.g., Debian, RHEL)
+- Platform version: Version of the distribution (e.g., 22.04)
+- Kernel version: Version of the system kernel
 - CPU architecture
 - Agent version: Version of the simob agent running on the host.
 
