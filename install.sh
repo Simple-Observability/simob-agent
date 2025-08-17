@@ -34,9 +34,14 @@ if [[ -z "${BINARY_PATH}" ]]; then
   # Download the last version of the prebuilt binary if BINARY_PATH is not defined
   OS="$(uname | tr '[:upper:]' '[:lower:]')"
   ARCH="$(uname -m)"
-  if [[ "$ARCH" == "x86_64" ]]; then
-    ARCH="amd64"
-  fi
+  case "$ARCH" in
+    x86_64)
+      ARCH="amd64"
+      ;;
+    aarch64)
+      ARCH="arm64"
+      ;;
+  esac
   BINARY_URL="https://github.com/Simple-Observability/simob-agent/releases/latest/download/simob-${OS}-${ARCH}"
   DOWNLOAD_DEST="/tmp/"
   DOWNLOAD_FILE="${DOWNLOAD_DEST}/simob-${OS}-${ARCH}"

@@ -4,17 +4,16 @@ on:
   push:
     branches: [ "*" ]
     tags: [ "*" ]
-  pull_request:
-    branches: [ "master" ]
 
 jobs:
   build:
+    name: "Build (${{ matrix.os }}/${{ matrix.arch }})"
     strategy:
       matrix:
         include:
-        # Linux build on Ubuntu runner
-        - { runner: ubuntu-latest, os: linux, arch: amd64 }
-    runs-on: ${{ matrix.runner }}
+        - { os: linux, arch: amd64 }
+        - { os: linux, arch: arm64 }
+    runs-on: ubuntu-latest
 
     defaults:
       run:
@@ -32,7 +31,7 @@ jobs:
 
     - name: Set Environment Variables
       run: |
-        echo "BINARY_NAME=simob-${{matrix.os}}-${{ matrix.arch }}" >> $GITHUB_ENV
+        echo "BINARY_NAME=simob-${{ matrix.os }}-${{ matrix.arch }}" >> $GITHUB_ENV
         echo "VERSION=${{ github.ref_name }}" >> $GITHUB_ENV
         echo "Go version used: $(go version)"
 
@@ -43,39 +42,74 @@ jobs:
     - name: Build agent binary
       run: |
         echo "Building version: ${{ env.VERSION }}"
-        echo "Output binary name: ../${{ env.BINARY_NAME }}"
-        go build -ldflags "-X 'agent/internal/version.Version=${{ env.VERSION }}'" -o ../${{ env.BINARY_NAME }} main.go
+        echo "Output binary name: ${{ env.BINARY_NAME }}"
+        GOOS=${{ matrix.os }} GOARCH=${{ matrix.arch }} go build -ldflags "-X 'agent/internal/version.Version=${{ env.VERSION }}'" -o ../${{ env.BINARY_NAME }} main.go
       working-directory: ./agent
 
-    - name: Check agent version
-      run: ./${{ env.BINARY_NAME }} version
+    - name: Upload artifact (${{ matrix.os }} ${{ matrix.arch }})
+      uses: actions/upload-artifact@v4
+      with:
+        name: preview-${{ matrix.os }}-${{ matrix.arch }}
+        path: |
+          ./${{ env.BINARY_NAME }}
+          install.sh
+        if-no-files-found: error
+
+  install-and-run:
+    name: Test (${{ matrix.os }}/${{ matrix.arch }})
+    needs: build
+    strategy:
+      matrix:
+        include:
+          - { runner: 'ubuntu-24.04', os: 'linux', arch: 'amd64' }
+          - { runner: 'ubuntu-24.04-arm', os: 'linux', arch: 'arm64' }
+    runs-on: ${{ matrix.runner }}
+
+    steps:
+    - name: Download agent artifact
+      uses: actions/download-artifact@v4
+      with:
+        name: preview-${{ matrix.os }}-${{ matrix.arch }}
+
+    - name: List downloaded files
+      run: ls -l
+
+    - name: Set Environment Variables
+      run: |
+        echo "BINARY_NAME=simob-${{ matrix.os }}-${{ matrix.arch }}" >> $GITHUB_ENV
+        echo "VERSION=${{ github.ref_name }}" >> $GITHUB_ENV
+        echo "Go version used: $(go version)"
 
     - name: Run install script
       run: sudo BINARY_PATH="${{ env.BINARY_NAME }}" bash install.sh dummy-api-key --dry-run
 
     - name: Run agent
       run: |
-        newgrp simob-admins
-        DEBUG=1 simob version
-        DEBUG=1 simob init --dry-run
-        DEBUG=1 simob config
-        DEBUG=1 simob start --dry-run
+        sudo -u simob-agent env DEBUG=1 simob version
+        sudo -u simob-agent env DEBUG=1 simob init --dry-run
+        sudo -u simob-agent env DEBUG=1 simob config
+        sudo -u simob-agent env DEBUG=1 simob start --dry-run
 
-    - name: Upload dev branch artifacts
-      if: github.ref_name == 'dev'
-      uses: actions/upload-artifact@v4
+  create-release:
+    name: Create GitHub Release
+    needs: install-and-run
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref_type == 'tag'
+    permissions:
+      contents: write
+
+    steps:
+    - name: Download all agent artifacts
+      uses: actions/download-artifact@v4
       with:
-        name: preview-build-${{ github.sha }}
-        path: |
-          ${{ env.BINARY_NAME }}
-          install.sh
+        path: artifacts
 
     - name: Create GitHub Release
-      if: github.ref_type == 'tag'
       uses: softprops/action-gh-release@v1
       with:
         tag_name: ${{ github.ref_name }}
         name: Release ${{ github.ref_name }}
         files: |
-          ${{ env.BINARY_NAME }}
-          install.sh
+          artifacts/preview-linux-amd64/install.sh
+          artifacts/preview-linux-amd64/simob-linux-amd64
+          artifacts/preview-linux-arm64/simob-linux-arm64
