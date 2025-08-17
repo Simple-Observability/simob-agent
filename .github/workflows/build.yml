@@ -86,9 +86,9 @@ jobs:
     - name: Run agent
       run: |
         sudo -u simob-agent env DEBUG=1 simob version
-        sudo -u simob-agent envDEBUG=1 simob init --dry-run
-        sudo -u simob-agent envDEBUG=1 simob config
-        sudo -u simob-agent envDEBUG=1 simob start --dry-run
+        sudo -u simob-agent env DEBUG=1 simob init --dry-run
+        sudo -u simob-agent env DEBUG=1 simob config
+        sudo -u simob-agent env DEBUG=1 simob start --dry-run
 
   create-release:
     name: Create GitHub Release
