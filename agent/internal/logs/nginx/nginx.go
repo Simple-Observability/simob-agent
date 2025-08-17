@@ -48,7 +48,8 @@ func (c *NginxLogCollector) Start(ctx context.Context, out chan<- logs.LogEntry)
 }
 
 func (c *NginxLogCollector) Stop() error {
-	if c.runner != nil {
-		return c.runner.Stop()
+	if c.runner == nil {
+		return nil
 	}
+	return c.runner.Stop()
 }
