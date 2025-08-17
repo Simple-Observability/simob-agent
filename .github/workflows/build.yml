@@ -95,12 +95,11 @@ jobs:
         getent group simob-admins || echo "Group simob-admins not found"
 
         echo "Checking membership of invoking user:"
-        newgrp simob-admins
         id $SUDO_USER || id $(whoami)
         echo "================================"
 
         # List files inside install directory
-        su runner -c  "ls -l /opt/simob"
+        sudo -u simob-agent ls -l /opt/simob
 
         # Check if the binary exists
         if [ -f /opt/simob/simob ]; then
