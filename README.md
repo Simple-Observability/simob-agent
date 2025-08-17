@@ -17,9 +17,11 @@ runtime dependencies and a one command install process.
 
 - [Installation](#installation)
 - [Usage](#usage)
-- [Available Inputs](#available-inputs)
+- [Data collected](#data-collected)
 
 ## Installation
+
+### Prebuilt binaries
 
 You can install the agent with a single command:
 ```bash
@@ -36,6 +38,14 @@ This will:
 
 The install script is fully documented with verbose comments and is designed to be easy to read,
 understand, and audit.
+
+### From source
+
+You can also build the agent binaries from source. During installation, set the environment variable `BINARY_PATH` to point to your built binary:
+
+```bash
+$ sudo BINARY_PATH=<PATH TO BINARY> ./install.sh <SERVER_KEY>
+```
 
 ## Usage
 Once installed, the agent binary (`simob`) is available in your system's PATH.
@@ -61,32 +71,90 @@ You can interact with it using the following commands:
 - `simob config`:
   Outputs the current resolved configuration. Helpful for debugging and validating setup.
 
-## Available Inputs
+## Data collected
+
+### Host info
+The agent collects basic information about the host machine to provide context for metrics and logs:
+- Hostname
+- Operating system
+- Platform: Name of the OS distribution (e.g., Ubuntu, CentOS)
+- Platform family: High-level OS family (e.g., Debian, RHEL)
+- Platform version: Version of the distribution (e.g., 22.04)
+- Kernel version: Version of the system kernel
+- CPU architecture
+- Agent version: Version of the simob agent running on the host.
 
 ### Metrics
 
-| Input           | Details                               | Status  |
-|-----------------|---------------------------------------|---------|
-| CPU             | Per-core and aggregate usage          |   ✅    |
-| Memory          | RAM usage                             |   ✅    |
-| Network         | Interface stats (bytes, packets)      |   ✅    |
-| Disk usage      | Used/free space per mount             |   ✅    |
-| Disk IO         | Read/write operations per device      |         |
-| Kernel          | Kernel metrics                        |         |
-| Processes       | Count and stats                       |         |
-| Swap            | Swap usage stats                      |         |
-| Docker          | Container metrics                     |         |
-| fail2ban        | Status and actions                    |         |
-| HDD temperature | SMART disk temps                      |         |
-| Internet speed  | Bandwidth tests                       |         |
-| Sensors         | Hardware sensors                      |         |
-| Temperature     | System temperature sensors            |         |
+#### Heartbeat
+Periodic signal to indicate the agent is running.
+
+#### CPU
+Collects per-core and total (aggregated) CPU usage ratios
+
+| Metric                | Description                          |
+|-----------------------|--------------------------------------|
+| `cpu_user_ratio`      | Time spent in user mode              |
+| `cpu_system_ratio`    | Time spent in system/kernel mode     |
+| `cpu_idle_ratio`      | Idle time                            |
+| `cpu_nice_ratio`      | Time spent on low-priority processes |
+| `cpu_iowait_ratio`    | Time waiting for I/O operations      |
+| `cpu_irq_ratio`       | Time servicing hardware interrupts   |
+| `cpu_softirq_ratio`   | Time servicing software interrupts   |
+| `cpu_steal_ratio`     | Time stolen by hypervisor            |
+| `cpu_guest_ratio`     | Time running a guest OS              |
+| `cpu_guestNice_ratio` | Time running a low-priority guest OS |
+
+**Tags:**
+- `cpu`: `total` (aggregated all cores) or `cpu{n}` (per core number)
+
+#### Disk
+Monitors disk usage and inode statistics:
+
+| Metric                    | Description       |
+|---------------------------|-------------------|
+| `disk_total_bytes`        | Total disk space  |
+| `disk_free_bytes`         | Free disk space   |
+| `disk_used_bytes`         | Used disk space   |
+| `disk_used_ratio`         | Used space ratio  |
+| `disk_inodes_total_total` | Total inodes      |
+| `disk_inodes_free_total`  | Free inodes       |
+| `disk_inodes_used_total`  | Used inodes       |
+| `disk_inodes_used_ratio`  | Used inodes ratio |
+
+**Tags:**
+- `device`: Disk device name (e.g., `/dev/sda1`)
+- `mountpoint`: The path where the disk is mounted  (e.g., `/`, `/home`)
+
+#### Memory
+Monitors system memory usage:
+
+| Metric                | Description       |
+|-----------------------|-------------------|
+| `mem_total_bytes`     | Total memory      |
+| `mem_available_bytes` | Available memory  |
+| `mem_used_bytes`      | Used memory       |
+| `mem_free_bytes`      | Free memory       |
+| `mem_used_ratio`      | Used memory ratio |
+
+#### Network
+Monitors network interface statistics:
+
+| Metric                  | Description                         |
+|-------------------------|-------------------------------------|
+| `net_bytes_sent_bps`    | Bytes sent per second               |
+| `net_bytes_recv_bps`    | Bytes received per second           |
+| `net_packets_sent_rate` | Packets sent per second             |
+| `net_packets_recv_rate` | Packets received per second         |
+| `net_errin_rate`        | Incoming errors per second          |
+| `net_errout_rate`       | Outgoing errors per second          |
+| `net_dropin_rate`       | Incoming dropped packets per second |
+| `net_dropout_rate`      | Outgoing dropped packets per second |
+
+**Tags:**
+- `interface`: The network interface name  (e.g., `eth0`, `wlan0`)
 
 ### Logs
 
-| Input          | Details                          | Status  |
-|----------------|----------------------------------|---------|
-| NGINX          | Access and error logs            | ✅      |
-| Apache         | Access and error logs            |         |
-| Authentication | `/var/log/auth.log` and variants |         |
-| fail2ban       | `/var/log/fail2ban.log`          |         |
+#### Nginx
+Default NGINX log files (`/var/log/nginx/*.log`),
