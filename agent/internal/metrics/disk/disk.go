@@ -5,9 +5,6 @@ import (
 	"agent/internal/logger"
 	"agent/internal/metrics"
 	"fmt"
-	"runtime"
-	"slices"
-	"strings"
 	"time"
 
 	"github.com/shirou/gopsutil/v4/disk"
@@ -65,25 +62,23 @@ func (c *DiskCollector) CollectAll() ([]metrics.DataPoint, error) {
 
 	var datapoints []metrics.DataPoint
 	for _, p := range partitions {
-		if isValidPartition(p) {
-			// Get usage stats for the valid mountpoint
-			usage, err := disk.Usage(p.Mountpoint)
-			if err != nil {
-				logger.Log.Error("failed to get usage stats", "mountpoint", p.Mountpoint)
-				continue
-			}
-			labels := map[string]string{
-				"device":     p.Device,
-				"mountpoint": p.Mountpoint,
-			}
-			for _, m := range diskMetrics {
-				datapoints = append(datapoints, metrics.DataPoint{
-					Name:      m.name,
-					Value:     m.getValue(usage),
-					Timestamp: timestamp,
-					Labels:    labels,
-				})
-			}
+		// Get usage stats
+		usage, err := disk.Usage(p.Mountpoint)
+		if err != nil {
+			logger.Log.Error("failed to get usage stats", "mountpoint", p.Mountpoint)
+			continue
+		}
+		labels := map[string]string{
+			"device":     p.Device,
+			"mountpoint": p.Mountpoint,
+		}
+		for _, m := range diskMetrics {
+			datapoints = append(datapoints, metrics.DataPoint{
+				Name:      m.name,
+				Value:     m.getValue(usage),
+				Timestamp: timestamp,
+				Labels:    labels,
+			})
 		}
 	}
 
@@ -98,48 +93,15 @@ func (c *DiskCollector) Discover() ([]collection.Metric, error) {
 
 	var discovered []collection.Metric
 	for _, p := range partitions {
-		if isValidPartition(p) {
-			diskLabels := map[string]string{"device": p.Device, "mountpoint": p.Mountpoint}
-			for _, m := range diskMetrics {
-				discovered = append(discovered, collection.Metric{
-					Name:   m.name,
-					Type:   "gauge",
-					Unit:   m.unit,
-					Labels: diskLabels,
-				})
-			}
+		diskLabels := map[string]string{"device": p.Device, "mountpoint": p.Mountpoint}
+		for _, m := range diskMetrics {
+			discovered = append(discovered, collection.Metric{
+				Name:   m.name,
+				Type:   "gauge",
+				Unit:   m.unit,
+				Labels: diskLabels,
+			})
 		}
 	}
 	return discovered, nil
-}
-
-func isValidPartition(p disk.PartitionStat) bool {
-	excludedFstypes := map[string]bool{
-		"tmpfs":    true, // Temporary filesystem in memory
-		"devtmpfs": true, // Device nodes in /dev
-		"proc":     true, // Process info pseudo-FS
-		"sysfs":    true, // Kernel objects pseudo-FS
-		"devfs":    true, // macOS device FS
-		"autofs":   true, // Automounter FS
-		"overlay":  true, // OverlayFS used by containers
-		"cgroup":   true, // Control group FS
-	}
-	// Skip pseudo and virtual filesystems that are not relevant for usage monitoring
-	if excludedFstypes[p.Fstype] {
-		return false
-	}
-	// Ignore partitions mounted under /proc or /sys (Linux virtual FS paths)
-	if strings.HasPrefix(p.Mountpoint, "/proc") || strings.HasPrefix(p.Mountpoint, "/sys") {
-		return false
-	}
-	// On macOS, ignore system-specific partitions except /System/Volumes/Data
-	if runtime.GOOS == "darwin" && strings.HasPrefix(p.Mountpoint, "/System/Volumes") && p.Mountpoint != "/System/Volumes/Data" {
-		return false
-	}
-	// Ignore read-only partitions
-	if slices.Contains(p.Opts, "ro") {
-		return false
-	}
-
-	return true
 }
