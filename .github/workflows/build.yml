@@ -66,9 +66,6 @@ jobs:
     runs-on: ${{ matrix.runner }}
 
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
-
     - name: Download agent artifact
       uses: actions/download-artifact@v4
       with:
@@ -90,6 +87,7 @@ jobs:
       run: |
         # List files inside install directory
         ls -l /opt/simob
+
         # Check if the binary exists
         if [ -f /opt/simob/simob ]; then
           echo "Binary exists at /opt/simob/simob"
@@ -97,6 +95,7 @@ jobs:
           echo "Binary not found at /opt/simob/simob"
           exit 1
         fi
+
         # Check if symlink exists
         if [ -L /usr/local/bin/simob ]; then
           echo "Symlink exists at /usr/local/bin/simob"
