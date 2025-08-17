@@ -44,7 +44,7 @@ understand, and audit.
 You can also build the agent binaries from source. During installation, set the environment variable `BINARY_PATH` to point to your built binary:
 
 ```bash
-$ sudo BINARY_PATH=<PATH TO BINARY> ./install.sh <SERVER_KEY
+$ sudo BINARY_PATH=<PATH TO BINARY> ./install.sh <SERVER_KEY>
 ```
 
 ## Usage
@@ -74,10 +74,11 @@ You can interact with it using the following commands:
 ## Data collected
 
 ### Host info
-		Hostname:     hInfo.Hostname,
-		OS:           hInfo.OS,
-		Arch:         hInfo.KernelArch,
-		AgentVersion: version.Version,
+The agent collects basic information about the host machine to provide context for metrics and logs:
+- Hostname
+- Operating system
+- CPU architecture
+- Agent version: Version of the simob agent running on the host.
 
 ### Metrics
 
@@ -101,7 +102,7 @@ Collects per-core and total (aggregated) CPU usage ratios
 | `cpu_guestNice_ratio` | Time running a low-priority guest OS |
 
 **Tags:**
-- `cpu` = `total` (aggregated all cores) or `cpu{n}` (per core number)
+- `cpu`: `total` (aggregated all cores) or `cpu{n}` (per core number)
 
 #### Disk
 Monitors disk usage and inode statistics:
