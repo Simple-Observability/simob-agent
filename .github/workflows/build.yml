@@ -85,6 +85,19 @@ jobs:
 
     - name: Check install
       run: |
+        # New debug info for users and groups
+        echo "==== User and group info ===="
+
+        echo "Listing simob user:"
+        id simob-agent || echo "User simob-agent not found"
+
+        echo "Listing simob group:"
+        getent group simob-admins || echo "Group simob-admins not found"
+
+        echo "Checking membership of invoking user:"
+        id $SUDO_USER || id $(whoami)
+        echo "================================"
+
         # List files inside install directory
         ls -l /opt/simob
 
