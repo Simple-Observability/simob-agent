@@ -100,7 +100,7 @@ jobs:
         echo "================================"
 
         # List files inside install directory
-        ls -l /opt/simob
+        su runner -c  "ls -l /opt/simob"
 
         # Check if the binary exists
         if [ -f /opt/simob/simob ]; then
