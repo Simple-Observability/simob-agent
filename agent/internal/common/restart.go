@@ -9,6 +9,14 @@ import (
 )
 
 // RestartSignal returns a channel that notifies when the agent should restart.
+//
+// This is a file-based signaling mechanism used instead of relying on OS signals
+// (SIGINT/SIGTERM) because signals can only be sent by the process owner or root.
+// Using a restart file allows any user in the simob-admins group to request a graceful
+// agent restart without needing elevated privileges.
+//
+// On agent startup, any stale restart file is deleted to avoid accidental triggers.
+// The returned channel will emit 'true' when a new restart signal is detected.func RestartSignal(stop <-chan struct{}) <-chan bool {
 func RestartSignal(stop <-chan struct{}) <-chan bool {
 	deleteRestartSignalIfExists()
 	out := make(chan bool, 1)
