@@ -16,7 +16,7 @@ import (
 // agent restart without needing elevated privileges.
 //
 // On agent startup, any stale restart file is deleted to avoid accidental triggers.
-// The returned channel will emit 'true' when a new restart signal is detected.func RestartSignal(stop <-chan struct{}) <-chan bool {
+// The returned channel will emit 'true' when a new restart signal is detected.
 func RestartSignal(stop <-chan struct{}) <-chan bool {
 	deleteRestartSignalIfExists()
 	out := make(chan bool, 1)
