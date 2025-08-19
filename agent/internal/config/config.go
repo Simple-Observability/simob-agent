@@ -17,6 +17,8 @@ type Config struct {
 	MetricsExportUrl string `json:"metrics_export_url"`
 }
 
+const ConfigFilename = "config.json"
+
 func NewConfig(apiKey string) *Config {
 	// Defaults
 	defaultAPIUrl := "https://api.simpleobservability.com"
@@ -74,7 +76,7 @@ func ConfigPath() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(programDirectory, "config.json"), nil
+	return filepath.Join(programDirectory, ConfigFilename), nil
 }
 
 func (c *Config) Save() error {
