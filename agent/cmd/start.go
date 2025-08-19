@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"os"
 	"os/signal"
 	"sync"
@@ -12,6 +13,7 @@ import (
 
 	"agent/internal/api"
 	"agent/internal/collection"
+	"agent/internal/common"
 	"agent/internal/config"
 	"agent/internal/exporter"
 	"agent/internal/lifecycle"
@@ -62,6 +64,19 @@ func Start() {
 	logger.Init(debug)
 	logger.Log.Info("Starting agent...")
 	logger.Log.Debug("DEBUG mode is enabled. Expect verbose logging.")
+
+	// Attempt to acquire a file lock to ensure only one instance is running.
+	err := common.AcquireLock()
+	if err != nil {
+		if errors.Is(err, common.ErrAlreadyRunning) {
+			// Exit if another instance is detected.
+			logger.Log.Info("Another instance of agent is already running. Exiting")
+			os.Exit(0)
+		}
+		logger.Log.Error("failed to acquire process lock", "error", err)
+		os.Exit(1)
+	}
+	defer common.ReleaseLock()
 
 	// Load config
 	cfg, err := config.Load()
