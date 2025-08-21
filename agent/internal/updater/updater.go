@@ -23,6 +23,9 @@ import (
 // tempSuffix is appended to the downloaded binary before it's installed
 const tempSuffix = ".new"
 
+// restartFileName is the name of the file created to signal a restart is needed
+const restartFileName = "restart"
+
 // remoteApiUrl is the URL of the remote API that is called to get
 // info about the latest updates.
 var remoteApiUrl = "https://api.simpleobservability.com"
@@ -105,6 +108,17 @@ func Update() error {
 	if err != nil {
 		return fmt.Errorf("failed to apply update: %v", err)
 	}
+
+	// Create restart signal file
+	fmt.Println("Creating restart signal file...")
+	err = createRestartSignal(execPath)
+	if err != nil {
+		return fmt.Errorf("failed to create restart signal: %v", err)
+	}
+
+	fmt.Printf("Update completed successfully from version '%s' to version '%s'.\n", version.Version, updateInfo.Version)
+	fmt.Println("\tIf the agent is running with systemd, it will auto-restart shortly.")
+	fmt.Println("\tIf it's running without systemd, the agent will stop and needs manual restart.")
 	return nil
 }
 
@@ -262,5 +276,25 @@ func applyUpdate(newExecPath string, targetPath string) error {
 	}
 
 	fmt.Printf("Successfully replaced '%s' with the new version from '%s'.\n", targetPath, newExecPath)
+	return nil
+}
+
+// createRestartSignal creates an empty "restart" file in the same directory as the executable
+// to signal to the agent that a restart is needed.
+func createRestartSignal(execPath string) error {
+	// Get the directory containing the executable
+	execDir := filepath.Dir(execPath)
+	restartFilePath := filepath.Join(execDir, restartFileName)
+
+	fmt.Printf("Creating restart signal file at: %s\n", restartFilePath)
+
+	// Create an empty file
+	file, err := os.Create(restartFilePath)
+	if err != nil {
+		return fmt.Errorf("failed to create restart signal file '%s': %w", restartFilePath, err)
+	}
+	defer file.Close()
+
+	fmt.Printf("Successfully created restart signal file: %s\n", restartFilePath)
 	return nil
 }

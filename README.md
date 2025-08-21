@@ -52,7 +52,6 @@ Once installed, the agent binary (`simob`) is available in your system's PATH.
 
 You can interact with it using the following commands:
 
-### Commands
 - `simob init`
   Initialize the agent by generating a default configuration Discovers available metrics and log sources.
   Also gather basic info about the server (hostname, os, arch and agent version).

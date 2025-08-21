@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"os"
 	"os/signal"
 	"sync"
@@ -12,6 +13,7 @@ import (
 
 	"agent/internal/api"
 	"agent/internal/collection"
+	"agent/internal/common"
 	"agent/internal/config"
 	"agent/internal/exporter"
 	"agent/internal/lifecycle"
@@ -63,10 +65,24 @@ func Start() {
 	logger.Log.Info("Starting agent...")
 	logger.Log.Debug("DEBUG mode is enabled. Expect verbose logging.")
 
+	// Attempt to acquire a file lock to ensure only one instance is running.
+	err := common.AcquireLock()
+	if err != nil {
+		if errors.Is(err, common.ErrAlreadyRunning) {
+			// Exit if another instance is detected.
+			logger.Log.Info("Another instance of agent is already running. Exiting")
+			os.Exit(0)
+		}
+		logger.Log.Error("failed to acquire process lock", "error", err)
+		os.Exit(1)
+	}
+	defer common.ReleaseLock()
+
 	// Load config
 	cfg, err := config.Load()
 	if err != nil {
 		logger.Log.Error("failed to load config", "error", err)
+		common.ReleaseLock()
 		os.Exit(1)
 	}
 
@@ -97,6 +113,7 @@ func Start() {
 		clcCfg, err = waitForConfig(ctx, client)
 		if err != nil {
 			logger.Log.Error("exiting due to config wait failure", "error", err)
+			common.ReleaseLock()
 			os.Exit(1)
 		}
 	}
@@ -106,6 +123,7 @@ func Start() {
 		initialHash, err := clcCfg.Hash()
 		if err != nil {
 			logger.Log.Error("failed to compute initial config hash", "error", err)
+			common.ReleaseLock()
 			os.Exit(1)
 		}
 
@@ -136,6 +154,7 @@ func Start() {
 					// Although this exit looks like a failure, it’s intentional to reload the new config.
 					if newHash != initialHash {
 						logger.Log.Info("Configuration has changed. Exiting for auto-restart.")
+						common.ReleaseLock()
 						os.Exit(1)
 					}
 				}
@@ -151,6 +170,7 @@ func Start() {
 	if err != nil {
 		logger.Log.Error("cannot initialize exporter", "error", err)
 		cancel()
+		common.ReleaseLock()
 		os.Exit(1)
 	}
 
@@ -177,11 +197,25 @@ func Start() {
 		return
 	}
 
+	// Wait for custom restart signal
+	restartCh := common.RestartSignal(ctx.Done())
+
+	// Wait for OS term/exit signals
 	signalChan := make(chan os.Signal, 1)
 	signal.Notify(signalChan, syscall.SIGINT, syscall.SIGTERM)
-	<-signalChan
-	logger.Log.Info("Termination signal received.")
-	cancel()
-	wg.Wait()
-	logger.Log.Info("Agent and collectors stopped. Exiting.")
+
+	select {
+	case sig := <-signalChan:
+		logger.Log.Info("Termination signal received.", "signal", sig)
+		cancel()
+		wg.Wait()
+		logger.Log.Info("Collectors stopped. Exiting.")
+	case <-restartCh:
+		logger.Log.Info("Restart requested. Shutting down gracefully for updater.")
+		cancel()
+		wg.Wait()
+		common.ReleaseLock()
+		logger.Log.Info("Agent stopped for restart. Automatic restart will only happen if running under systemd.")
+		os.Exit(1)
+	}
 }
