@@ -26,10 +26,8 @@ var statusCmd = &cobra.Command{
 		}
 
 		if isLocked {
-			// Prettier print for 'running' status
 			fmt.Printf("%s[✔]%s simob is running.\n", ColorGreen, ColorReset)
 		} else {
-			// Prettier print for 'not running' status
 			fmt.Printf("%s[✖]%s simob is not running.\n", ColorRed, ColorReset)
 		}
 	},
