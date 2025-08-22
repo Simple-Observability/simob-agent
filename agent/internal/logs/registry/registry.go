@@ -4,12 +4,14 @@ import (
 	"agent/internal/collection"
 	"agent/internal/logger"
 	"agent/internal/logs"
+	"agent/internal/logs/apache"
 	"agent/internal/logs/nginx"
 )
 
 func BuildCollectors(cfg *collection.CollectionConfig) []logs.LogCollector {
 	collectorMap := map[string]logs.LogCollector{
-		"nginx": nginx.NewNginxLogCollector(),
+		"apache": apache.NewApacheLogCollector(),
+		"nginx":  nginx.NewNginxLogCollector(),
 	}
 
 	// If cfg is nil, return all collectors
