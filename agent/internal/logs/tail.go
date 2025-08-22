@@ -29,17 +29,15 @@ type TailRunner struct {
 	// out is the channel where the log entries are sent for processing
 	out chan<- LogEntry
 
-	// regex is the regular expression used to extract labels (mainly timestamp) from log lines
-	regex string
+	// processor is the function used to transform raw log lines
+	// into structured LogEntries.
+	processor Processor
 
 	// tailers stores the tailers for the matched files
 	tailers []*tail.Tail
 
 	// wg is used to wait for all tailers to complete
 	wg sync.WaitGroup
-
-	// collector identifies the type or name of the log collector (TODO: should remove this)
-	collector string
 
 	positions map[string]PositionEntry
 
@@ -49,8 +47,8 @@ type TailRunner struct {
 	positionMutex sync.Mutex
 }
 
-// NewTailRunner creates and configures a new TailRunner with the given file glob pattern and regex.
-func NewTailRunner(pattern string, regex string, collector string) (*TailRunner, error) {
+// NewTailRunner creates and configures a new TailRunner.
+func NewTailRunner(pattern string, processor Processor) (*TailRunner, error) {
 	// Check that all files can be opened
 	files, err := filepath.Glob(pattern)
 	if err != nil {
@@ -78,8 +76,6 @@ func NewTailRunner(pattern string, regex string, collector string) (*TailRunner,
 
 	return &TailRunner{
 		pattern:           pattern,
-		regex:             regex,
-		collector:         collector,
 		positions:         positions,
 		positionsFilePath: positionPath,
 	}, nil
@@ -139,12 +135,12 @@ func (r *TailRunner) Start(ctx context.Context, out chan<- LogEntry) error {
 		r.tailers = append(r.tailers, t)
 
 		r.wg.Add(1)
-		go func(t *tail.Tail, regex string, source string) {
+		go func(t *tail.Tail, processor Processor) {
 			defer r.wg.Done()
 			for {
 				select {
 				case <-ctx.Done():
-					logger.Log.Debug("Stopping tailer", "source", source)
+					logger.Log.Debug("Stopping tailer", "filename", t.Filename)
 					return
 				case line := <-t.Lines:
 					if line == nil {
@@ -152,8 +148,7 @@ func (r *TailRunner) Start(ctx context.Context, out chan<- LogEntry) error {
 					}
 
 					// Process log entry and send it to out channel
-					rawLog := RawLogLine{Text: line.Text, Source: source}
-					processedLog, _ := processLogLine(rawLog, regex)
+					processedLog, _ := processor(line.Text)
 					out <- processedLog
 
 					// Update position after processing line
@@ -162,7 +157,7 @@ func (r *TailRunner) Start(ctx context.Context, out chan<- LogEntry) error {
 					}
 				}
 			}
-		}(t, r.regex, r.collector)
+		}(t, r.processor)
 
 	}
 	return nil

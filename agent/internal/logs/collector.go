@@ -10,13 +10,6 @@ import (
 	"agent/internal/logger"
 )
 
-// RawLogLine carries a raw log line and its origin
-// and is emitted by log collectors
-type RawLogLine struct {
-	Text   string
-	Source string
-}
-
 // LogEntry represents a single log entry with extracted labels
 type LogEntry struct {
 	Timestamp int64             // Unix timestamp in milliseconds
@@ -24,6 +17,11 @@ type LogEntry struct {
 	Text      string            // Raw log message
 	Labels    map[string]string // Key-value pairs for labels
 }
+
+// Processor defines the signature for log line processing functions.
+// It takes a raw log line string as input and returns a parsed LogEntry
+// along with an error if the line could not be processed.
+type Processor func(logLine string) (LogEntry, error)
 
 // LogCollector defines the interface for logs collection implementations.
 type LogCollector interface {
