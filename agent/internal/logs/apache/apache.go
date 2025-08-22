@@ -20,7 +20,7 @@ type ApacheLogCollector struct {
 func NewApacheLogCollector() *ApacheLogCollector {
 	return &ApacheLogCollector{
 		name:    "apache",
-		pattern: "/var/log/apache2/access_log",
+		pattern: "/var/log/apache2/access.log",
 	}
 }
 
