@@ -3,6 +3,7 @@ package apache
 import (
 	"context"
 	"fmt"
+	"os"
 	"regexp"
 	"time"
 
@@ -29,7 +30,12 @@ func (c *ApacheLogCollector) Name() string {
 
 func (c *ApacheLogCollector) Discover() []collection.LogSource {
 	sources := []collection.LogSource{}
-	// Check if pattern file exist and return a log collector log source inside collection.LogSource{Name: c.name, Path: c.pattern}
+	if _, err := os.Stat(c.pattern); err == nil {
+		sources = append(sources, collection.LogSource{
+			Name: c.name,
+			Path: c.pattern,
+		})
+	}
 	return sources
 }
 
