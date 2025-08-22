@@ -3,7 +3,7 @@ package apache
 import (
 	"context"
 	"fmt"
-	"os"
+	"path/filepath"
 	"regexp"
 	"time"
 
@@ -20,7 +20,7 @@ type ApacheLogCollector struct {
 func NewApacheLogCollector() *ApacheLogCollector {
 	return &ApacheLogCollector{
 		name:    "apache",
-		pattern: "/var/log/apache2/access.log",
+		pattern: "/var/log/apache2/*access.log",
 	}
 }
 
@@ -30,11 +30,9 @@ func (c *ApacheLogCollector) Name() string {
 
 func (c *ApacheLogCollector) Discover() []collection.LogSource {
 	sources := []collection.LogSource{}
-	if _, err := os.Stat(c.pattern); err == nil {
-		sources = append(sources, collection.LogSource{
-			Name: c.name,
-			Path: c.pattern,
-		})
+	files, _ := filepath.Glob(c.pattern)
+	if len(files) > 0 {
+		sources = append(sources, collection.LogSource{Name: c.name, Path: c.pattern})
 	}
 	return sources
 }
