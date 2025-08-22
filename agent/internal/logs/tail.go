@@ -76,6 +76,7 @@ func NewTailRunner(pattern string, processor Processor) (*TailRunner, error) {
 
 	return &TailRunner{
 		pattern:           pattern,
+		processor:         processor,
 		positions:         positions,
 		positionsFilePath: positionPath,
 	}, nil
