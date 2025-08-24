@@ -128,13 +128,17 @@ Monitors disk usage and inode statistics:
 #### Memory
 Monitors system memory usage:
 
-| Metric                | Description       |
-|-----------------------|-------------------|
-| `mem_total_bytes`     | Total memory      |
-| `mem_available_bytes` | Available memory  |
-| `mem_used_bytes`      | Used memory       |
-| `mem_free_bytes`      | Free memory       |
-| `mem_used_ratio`      | Used memory ratio |
+| Metric                 | Description       |
+|------------------------|-------------------|
+| `mem_total_bytes`      | Total memory      |
+| `mem_available_bytes`  | Available memory  |
+| `mem_used_bytes`       | Used memory       |
+| `mem_free_bytes`       | Free memory       |
+| `mem_used_ratio`       | Used memory ratio |
+| `mem_swap_total_bytes` | Total swap memory |
+| `mem_swap_used_bytes`  | Used swap memory  |
+| `mem_swap_free_bytes`  | Free swap memory  |
+| `mem_swap_used_ratio`  | Used swap ratio   |
 
 #### Network
 Monitors network interface statistics:
@@ -156,4 +160,7 @@ Monitors network interface statistics:
 ### Logs
 
 #### Nginx
-Default NGINX log files (`/var/log/nginx/*.log`),
+Default NGINX log files (`/var/log/nginx/*.log`)
+
+#### Apache
+Default Apache access log files (`/var/log/apache2/*access.log`)
