@@ -1,4 +1,4 @@
-package nginx
+package apache
 
 import (
 	"context"
@@ -11,24 +11,24 @@ import (
 	"agent/internal/logs"
 )
 
-type NginxLogCollector struct {
+type ApacheLogCollector struct {
 	name    string
 	pattern string
 	runner  *logs.TailRunner
 }
 
-func NewNginxLogCollector() *NginxLogCollector {
-	return &NginxLogCollector{
-		name:    "nginx",
-		pattern: "/var/log/nginx/*.log",
+func NewApacheLogCollector() *ApacheLogCollector {
+	return &ApacheLogCollector{
+		name:    "apache",
+		pattern: "/var/log/apache2/*access.log",
 	}
 }
 
-func (c *NginxLogCollector) Name() string {
+func (c *ApacheLogCollector) Name() string {
 	return c.name
 }
 
-func (c *NginxLogCollector) Discover() []collection.LogSource {
+func (c *ApacheLogCollector) Discover() []collection.LogSource {
 	sources := []collection.LogSource{}
 	files, _ := filepath.Glob(c.pattern)
 	if len(files) > 0 {
@@ -37,7 +37,7 @@ func (c *NginxLogCollector) Discover() []collection.LogSource {
 	return sources
 }
 
-func (c *NginxLogCollector) Start(ctx context.Context, out chan<- logs.LogEntry) error {
+func (c *ApacheLogCollector) Start(ctx context.Context, out chan<- logs.LogEntry) error {
 	// Initialize the runner on the first start
 	if c.runner == nil {
 		runner, err := logs.NewTailRunner(c.pattern, c.processLogLine)
@@ -49,14 +49,14 @@ func (c *NginxLogCollector) Start(ctx context.Context, out chan<- logs.LogEntry)
 	return c.runner.Start(ctx, out)
 }
 
-func (c *NginxLogCollector) Stop() error {
+func (c *ApacheLogCollector) Stop() error {
 	if c.runner == nil {
 		return nil
 	}
 	return c.runner.Stop()
 }
 
-func (c *NginxLogCollector) processLogLine(logLine string) (logs.LogEntry, error) {
+func (c *ApacheLogCollector) processLogLine(logLine string) (logs.LogEntry, error) {
 	entry := logs.LogEntry{
 		Source: c.name,
 		Text:   logLine,
