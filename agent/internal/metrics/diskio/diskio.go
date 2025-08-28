@@ -3,7 +3,6 @@ package diskio
 import (
 	"agent/internal/collection"
 	"agent/internal/metrics"
-	"encoding/json"
 	"fmt"
 	"time"
 
@@ -146,8 +145,6 @@ func (c *DiskIOCollector) CollectAll() ([]metrics.DataPoint, error) {
 
 	c.lastTime = timestamp
 
-	b, _ := json.MarshalIndent(results, "", "  ")
-	fmt.Println(string(b))
 	return results, nil
 }
 
