@@ -11,6 +11,7 @@ import (
 	"agent/internal/metrics/memory"
 	"agent/internal/metrics/network"
 	"agent/internal/metrics/status"
+	"agent/internal/metrics/temperature"
 )
 
 func BuildCollectors(cfg *collection.CollectionConfig) []metrics.MetricCollector {
@@ -19,6 +20,7 @@ func BuildCollectors(cfg *collection.CollectionConfig) []metrics.MetricCollector
 		"mem":  memory.NewMemoryCollector(),
 		"disk": disk.NewDiskCollector(),
 		"net":  network.NewNetworkCollector(),
+		"temp": temperature.NewTemperatureCollector(),
 	}
 
 	var allCollectors []metrics.MetricCollector
