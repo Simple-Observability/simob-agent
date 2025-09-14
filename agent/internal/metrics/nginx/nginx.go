@@ -44,23 +44,23 @@ var nginxMetrics = []struct {
 	getVal func(current, previous *nginxStats) float64
 }{
 	{
-		"nginx_connections_active_total", "total",
+		"nginx_connections_active_total", "no",
 		func(current, previous *nginxStats) float64 { return current.Active },
 	},
 	{
-		"nginx_connections_reading_total", "total",
+		"nginx_connections_reading_total", "no",
 		func(current, previous *nginxStats) float64 { return current.Reading },
 	},
 	{
-		"nginx_connections_writing_total", "total",
+		"nginx_connections_writing_total", "no",
 		func(current, previous *nginxStats) float64 { return current.Writing },
 	},
 	{
-		"nginx_connections_waiting_total", "total",
+		"nginx_connections_waiting_total", "no",
 		func(current, previous *nginxStats) float64 { return current.Waiting },
 	},
 	{
-		"nginx_requests_total", "total",
+		"nginx_requests_total", "no",
 		func(current, previous *nginxStats) float64 { return float64(current.Requests) },
 	},
 	{
