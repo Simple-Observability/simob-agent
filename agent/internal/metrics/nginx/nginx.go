@@ -20,7 +20,7 @@ type NginxCollector struct {
 }
 
 func NewNginxCollector() *NginxCollector {
-	return &NginxCollector{url: "http://localhost:8080/nginx_status"}
+	return &NginxCollector{url: "http://localhost/nginx_status"}
 }
 
 func (c *NginxCollector) Name() string {
