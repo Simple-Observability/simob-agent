@@ -26,9 +26,9 @@ func (c *NetworkCollector) Name() string {
 
 // netMetrics list the available metrics inside the network package
 var netMetrics = []struct {
-	name     string
-	unit     string
-	getValue func(*net.IOCountersStat) float64
+	name       string
+	unit       string
+	getCounter func(*net.IOCountersStat) float64
 }{
 	{"net_bytes_sent_bps", "bps", func(io *net.IOCountersStat) float64 { return float64(io.BytesSent) }},
 	{"net_bytes_recv_bps", "bps", func(io *net.IOCountersStat) float64 { return float64(io.BytesRecv) }},
@@ -83,7 +83,7 @@ func (c *NetworkCollector) CollectAll() ([]metrics.DataPoint, error) {
 		}
 		labels := map[string]string{"interface": s.Name}
 		for _, m := range netMetrics {
-			delta := m.getValue(&s) - m.getValue(&prev)
+			delta := m.getCounter(&s) - m.getCounter(&prev)
 			value := delta / deltaT
 			results = append(results, metrics.DataPoint{
 				Name:      m.name,
