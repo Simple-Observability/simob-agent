@@ -70,7 +70,13 @@ var nginxMetrics = []struct {
 				return 0
 			}
 			deltaT := float64(current.Ts - previous.Ts)
-			deltaReq := float64(current.Requests - previous.Requests)
+			var deltaReq float64
+			// Counter reset detected (Nginx restart)
+			if previous.Requests > current.Requests {
+				deltaReq = float64(current.Requests)
+			} else {
+				deltaReq = float64(current.Requests - previous.Requests)
+			}
 			return deltaReq / deltaT * 1000
 		},
 	},
