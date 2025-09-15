@@ -102,8 +102,6 @@ func (c *NginxCollector) CollectAll() ([]metrics.DataPoint, error) {
 		return nil, fmt.Errorf("failed to get stats from nginx status page: %w", err)
 	}
 
-	fmt.Println(stats)
-
 	var results []metrics.DataPoint
 	for _, m := range nginxMetrics {
 		val := m.getVal(stats, c.lastStats)
