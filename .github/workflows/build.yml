@@ -18,6 +18,7 @@ jobs:
         uses: golangci/golangci-lint-action@v8
         with:
           version: v2.5
+          working-directory: agent
 
   build:
     name: "Build (${{ matrix.os }}/${{ matrix.arch }})"
