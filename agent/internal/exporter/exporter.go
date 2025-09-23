@@ -255,34 +255,59 @@ func (e *Exporter) startFlusher(
 		select {
 		case <-e.ctx.Done():
 			// Final flush before shutdown
-			e.flushOnce(spoolFile, url, unmarshal)
+			e.flushAll(spoolFile, url, unmarshal)
 			return
 		case <-ticker.C:
-			e.flushOnce(spoolFile, url, unmarshal)
+			e.flushAll(spoolFile, url, unmarshal)
 		}
 	}
 }
 
+// flushAll processes all entries in the spool file, sending them in batches
+// until the file is empty or context is cancelled
+func (e *Exporter) flushAll(spoolFile string, url string, unmarshal func([]byte) (Payload, error)) {
+	for {
+		// Check if we should stop (context cancelled)
+		select {
+		case <-e.ctx.Done():
+			return
+		default:
+		}
+
+		// Try to process one batch
+		hasMoreEntries, err := e.flushOnce(spoolFile, url, unmarshal)
+		if err != nil {
+			logger.Log.Error("error during flush", "file", spoolFile, "error", err)
+			return
+		}
+
+		if !hasMoreEntries {
+			return
+		}
+
+		time.Sleep(10 * time.Millisecond)
+	}
+}
+
 // flushOnce processed and sends a batch from the spool file
-func (e *Exporter) flushOnce(spoolFile string, url string, unmarshal func([]byte) (Payload, error)) {
+func (e *Exporter) flushOnce(spoolFile string, url string, unmarshal func([]byte) (Payload, error)) (bool, error) {
 	// Read all lines from spool file
 	data, err := os.ReadFile(spoolFile)
 	if err != nil {
-		if !os.IsNotExist(err) {
-			// TODO: critical
-			logger.Log.Error("failed to read spool file", "file", spoolFile, "error", err)
+		if os.IsNotExist(err) {
+			return false, nil
 		}
-		return
+		return false, fmt.Errorf("failed to read spool file: %w", err)
 	}
 
 	content := strings.TrimRight(string(data), "\n")
 	if content == "" {
-		return // Empty file
+		return false, nil // Empty file
 	}
 
 	lines := strings.Split(content, "\n")
 	if len(lines) == 0 {
-		return
+		return false, nil // No more entries
 	}
 
 	// Collect up to MaxBatchSize entries
@@ -320,18 +345,18 @@ func (e *Exporter) flushOnce(spoolFile string, url string, unmarshal func([]byte
 	// Send batch if we have valid entries
 	if len(toSend) > 0 {
 		if err := e.sendPayload(url, toSend); err != nil {
-			logger.Log.Error("failed to send batch", "url", url, "count", len(toSend), "error", err)
-			return // On failure, do nothing: retry same batch next tick
+			return false, fmt.Errorf("failed to send batch: %w", err)
 		}
 		logger.Log.Debug("successfully sent batch", "url", url, "count", len(toSend))
 	}
 
 	// Rewrite spool file with remaining entries
 	if err := e.rewriteSpool(spoolFile, keepLines); err != nil {
-		logger.Log.Error("failed to rewrite spool file", "file", spoolFile, "error", err)
-		// TODO: critical. rewrite spool failed.
-		return
+		return false, fmt.Errorf("failed to rewrite spool file: %w", err)
 	}
+
+	// Return true if there are more entries to process
+	return len(keepLines) > 0, nil
 }
 
 // ------------------------ Export ------------------------
