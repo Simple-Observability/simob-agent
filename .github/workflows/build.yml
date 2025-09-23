@@ -124,10 +124,10 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v4
 
-    - name: Run agent with coverage report
+    - name: Generate coverage report
       run: |
         sudo chown -R $USER:$USER /tmp/coverage_data
-        # Generate coverage report
+        cd agent
         echo "Generating coverage report..."
         go tool covdata textfmt -i=/tmp/coverage_data -o coverage.txt
         go tool cover -func=coverage.txt -o coverage-func.txt
