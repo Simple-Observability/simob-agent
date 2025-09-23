@@ -107,7 +107,7 @@ jobs:
     - name: Run install script
       run: |
         sudo BINARY_PATH="${{ env.BINARY_NAME }}-debug" bash install.sh dummy-api-key --dry-run
-        systemctl stop simob.service
+        sudo systemctl stop simob.service
 
     - name: Run agent
       run: |
