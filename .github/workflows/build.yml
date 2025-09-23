@@ -127,6 +127,7 @@ jobs:
       uses: actions/checkout@v4
 
     - name: Generate coverage report
+      if: ${{ matrix.arch == 'amd64' }}
       run: |
         sudo chown -R $USER:$USER /tmp/coverage_data
         cd agent
