@@ -71,7 +71,7 @@ jobs:
         echo "Output binary name: ${{ env.BINARY_NAME }}"
         GOOS=${{ matrix.os }} GOARCH=${{ matrix.arch }} go build \
           -ldflags "-s -w -X 'agent/internal/version.Version=${{ env.VERSION }}'" \
-          -o ../${{ env.BINARY_NAME }}-debug \
+          -o ../${{ env.BINARY_NAME }} \
           main.go
       working-directory: ./agent
 
