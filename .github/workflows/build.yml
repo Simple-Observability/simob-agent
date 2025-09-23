@@ -56,8 +56,9 @@ jobs:
     - name: Build agent binaries
       run: |
         echo "Building version: ${{ env.VERSION }}"
-        echo "Output binary name: ${{ env.BINARY_NAME }}-debug"
+        echo "Output binary name: ${{ env.BINARY_NAME }}"
         # Debug
+        echo "Building debug binaries..."
         GOOS=${{ matrix.os }} GOARCH=${{ matrix.arch }} go build \
           -cover \
           -gcflags="all=-N -l" \
@@ -65,6 +66,7 @@ jobs:
           -o ../${{ env.BINARY_NAME }}-debug \
           main.go
         # Production
+        echo "Building production binaries..."
         GOOS=${{ matrix.os }} GOARCH=${{ matrix.arch }} go build \
           -ldflags "-s -w -X 'agent/internal/version.Version=${{ env.VERSION }}'" \
           -o ../${{ env.BINARY_NAME }} \
@@ -128,13 +130,22 @@ jobs:
       run: |
         sudo chown -R $USER:$USER /tmp/coverage_data
         cd agent
-        echo "Generating coverage report..."
+
+        echo "Generating coverage reports..."
         go tool covdata textfmt -i=/tmp/coverage_data -o coverage.txt
-        go tool cover -func=coverage.txt -o coverage-func.txt
-        go tool cover -html=coverage.txt -o coverage.html
-        # Display basic coverage summary
-        echo "=== Coverage Summary ==="
-        go tool cover -func=coverage.txt | grep total || true
+        echo "=========================================="
+        echo " Go Coverage Report by Package (Sorted)"
+        echo "=========================================="
+        go tool covdata percent -i=/tmp/coverage_data | awk '
+        {
+            pkg = $1;
+            coverage = $3;
+            printf "%-50s %s\n", pkg, coverage;
+        }' | sort -k 2 -r -n
+        echo "=========================================="
+        echo "      Go Total Coverage (Statements)"
+        echo "=========================================="
+        go tool cover -func=coverage.txt | grep total
 
   create-release:
     name: Create GitHub Release
