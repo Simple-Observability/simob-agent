@@ -9,6 +9,7 @@ jobs:
   lint:
     name: Lint
     runs-on: ubuntu-latest
+    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v4
@@ -19,7 +20,6 @@ jobs:
         with:
           version: v2.5
           working-directory: agent
-        continue-on-error: true
 
   build:
     name: "Build (${{ matrix.os }}/${{ matrix.arch }})"
