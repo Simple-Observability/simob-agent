@@ -19,8 +19,6 @@ import (
 
 // Configuration constants
 const (
-	// FIXME: If inside flush interval there are more entries that MaxBatchSize,
-	// it will accumulate entries. Flush routine should not exit until all elements are processed
 	FlushInterval = 5 * time.Second
 	MaxBatchSize  = 100
 	MaxAge        = 24 * time.Hour
