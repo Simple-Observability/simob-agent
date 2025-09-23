@@ -105,7 +105,9 @@ jobs:
         echo "BINARY_NAME=simob-${{ matrix.os }}-${{ matrix.arch }}" >> $GITHUB_ENV
 
     - name: Run install script
-      run: sudo BINARY_PATH="${{ env.BINARY_NAME }}-debug" bash install.sh dummy-api-key --dry-run
+      run: |
+        sudo BINARY_PATH="${{ env.BINARY_NAME }}-debug" bash install.sh dummy-api-key --dry-run
+        systemctl stop simob.service
 
     - name: Run agent
       run: |
