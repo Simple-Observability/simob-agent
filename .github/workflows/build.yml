@@ -109,21 +109,23 @@ jobs:
         sudo BINARY_PATH="${{ env.BINARY_NAME }}-debug" bash install.sh dummy-api-key --dry-run
         sudo systemctl stop simob.service
 
+    - name: Prepare code coverage directory
+      run: |
+        sudo mkdir -p /tmp/coverage_data
+        sudo chmod 777 /tmp/coverage_data
+
     - name: Run agent
       run: |
         sudo -u simob-agent env DEBUG=1 simob version
         sudo -u simob-agent env DEBUG=1 simob init --dry-run
         sudo -u simob-agent env DEBUG=1 simob config
-        sudo -u simob-agent env DEBUG=1 simob start --dry-run
+        sudo -u simob-agent env DEBUG=1 GOCOVERDIR=/tmp/coverage_data simob start --dry-run
+
+    - name: Checkout repository
+      uses: actions/checkout@v4
 
     - name: Run agent with coverage report
       run: |
-        # Create coverage directory
-        sudo mkdir -p /tmp/coverage_data
-        sudo chmod 777 /tmp/coverage_data
-        # Dry run with coverage
-        sudo -u simob-agent env DEBUG=1 GOCOVERDIR=/tmp/coverage_data simob start --dry-run
-        # Change ownership of coverage data to current user
         sudo chown -R $USER:$USER /tmp/coverage_data
         # Generate coverage report
         echo "Generating coverage report..."
