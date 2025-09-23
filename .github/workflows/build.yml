@@ -53,11 +53,26 @@ jobs:
       run: go mod download
       working-directory: ./agent
 
-    - name: Build agent binary
+    - name: Build agent binary (with coverage and debug info)
+      run: |
+        echo "Building version: ${{ env.VERSION }}"
+        echo "Output binary name: ${{ env.BINARY_NAME }}-debug"
+        GOOS=${{ matrix.os }} GOARCH=${{ matrix.arch }} go build \
+          -cover \
+          -gcflags="all=-N -l" \
+          -ldflags "-X 'agent/internal/version.Version=${{ env.VERSION }}.debug'" \
+          -o ../${{ env.BINARY_NAME }}-debug \
+          main.go
+      working-directory: ./agent
+
+    - name: Build agent binary (optimized)
       run: |
         echo "Building version: ${{ env.VERSION }}"
         echo "Output binary name: ${{ env.BINARY_NAME }}"
-        GOOS=${{ matrix.os }} GOARCH=${{ matrix.arch }} go build -ldflags "-X 'agent/internal/version.Version=${{ env.VERSION }}'" -o ../${{ env.BINARY_NAME }} main.go
+        GOOS=${{ matrix.os }} GOARCH=${{ matrix.arch }} go build \
+          -ldflags "-s -w -X 'agent/internal/version.Version=${{ env.VERSION }}'" \
+          -o ../${{ env.BINARY_NAME }}-debug \
+          main.go
       working-directory: ./agent
 
     - name: Upload artifact (${{ matrix.os }} ${{ matrix.arch }})
@@ -66,6 +81,7 @@ jobs:
         name: preview-${{ matrix.os }}-${{ matrix.arch }}
         path: |
           ./${{ env.BINARY_NAME }}
+          ./${{ env.BINARY_NAME }}-debug
           install.sh
         if-no-files-found: error
 
