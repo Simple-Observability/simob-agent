@@ -103,11 +103,9 @@ jobs:
     - name: Set Environment Variables
       run: |
         echo "BINARY_NAME=simob-${{ matrix.os }}-${{ matrix.arch }}" >> $GITHUB_ENV
-        echo "VERSION=${{ github.ref_name }}" >> $GITHUB_ENV
-        echo "Go version used: $(go version)"
 
     - name: Run install script
-      run: sudo BINARY_PATH="${{ env.BINARY_NAME }}" bash install.sh dummy-api-key --dry-run
+      run: sudo BINARY_PATH="${{ env.BINARY_NAME }}-debug" bash install.sh dummy-api-key --dry-run
 
     - name: Run agent
       run: |
@@ -115,6 +113,24 @@ jobs:
         sudo -u simob-agent env DEBUG=1 simob init --dry-run
         sudo -u simob-agent env DEBUG=1 simob config
         sudo -u simob-agent env DEBUG=1 simob start --dry-run
+
+    - name: Run agent with coverage report
+      run: |
+        # Create coverage directory
+        sudo mkdir -p /tmp/coverage_data
+        sudo chmod 777 /tmp/coverage_data
+        # Dry run with coverage
+        sudo -u simob-agent env DEBUG=1 GOCOVERDIR=/tmp/coverage_data simob start --dry-run
+        # Change ownership of coverage data to current user
+        sudo chown -R $USER:$USER /tmp/coverage_data
+        # Generate coverage report
+        echo "Generating coverage report..."
+        go tool covdata textfmt -i=/tmp/coverage_data -o coverage.txt
+        go tool cover -func=coverage.txt -o coverage-func.txt
+        go tool cover -html=coverage.txt -o coverage.html
+        # Display basic coverage summary
+        echo "=== Coverage Summary ==="
+        go tool cover -func=coverage.txt | grep total || true
 
   create-release:
     name: Create GitHub Release
