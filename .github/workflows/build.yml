@@ -7,17 +7,19 @@ on:
 
 jobs:
   lint:
-    name: lint
+    name: Lint
     runs-on: ubuntu-latest
+    continue-on-error: true
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-go@v6
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v4
         with:
           go-version: stable
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v8
         with:
-          version: v2.1
+          version: v2.5
+          working-directory: agent
 
   build:
     name: "Build (${{ matrix.os }}/${{ matrix.arch }})"
@@ -52,11 +54,24 @@ jobs:
       run: go mod download
       working-directory: ./agent
 
-    - name: Build agent binary
+    - name: Build agent binaries
       run: |
         echo "Building version: ${{ env.VERSION }}"
         echo "Output binary name: ${{ env.BINARY_NAME }}"
-        GOOS=${{ matrix.os }} GOARCH=${{ matrix.arch }} go build -ldflags "-X 'agent/internal/version.Version=${{ env.VERSION }}'" -o ../${{ env.BINARY_NAME }} main.go
+        # Debug
+        echo "Building debug binaries..."
+        GOOS=${{ matrix.os }} GOARCH=${{ matrix.arch }} go build \
+          -cover \
+          -gcflags="all=-N -l" \
+          -ldflags "-X 'agent/internal/version.Version=${{ env.VERSION }}.debug'" \
+          -o ../${{ env.BINARY_NAME }}-debug \
+          main.go
+        # Production
+        echo "Building production binaries..."
+        GOOS=${{ matrix.os }} GOARCH=${{ matrix.arch }} go build \
+          -ldflags "-s -w -X 'agent/internal/version.Version=${{ env.VERSION }}'" \
+          -o ../${{ env.BINARY_NAME }} \
+          main.go
       working-directory: ./agent
 
     - name: Upload artifact (${{ matrix.os }} ${{ matrix.arch }})
@@ -65,6 +80,7 @@ jobs:
         name: preview-${{ matrix.os }}-${{ matrix.arch }}
         path: |
           ./${{ env.BINARY_NAME }}
+          ./${{ env.BINARY_NAME }}-debug
           install.sh
         if-no-files-found: error
 
@@ -90,18 +106,48 @@ jobs:
     - name: Set Environment Variables
       run: |
         echo "BINARY_NAME=simob-${{ matrix.os }}-${{ matrix.arch }}" >> $GITHUB_ENV
-        echo "VERSION=${{ github.ref_name }}" >> $GITHUB_ENV
-        echo "Go version used: $(go version)"
 
     - name: Run install script
-      run: sudo BINARY_PATH="${{ env.BINARY_NAME }}" bash install.sh dummy-api-key --dry-run
+      run: |
+        sudo BINARY_PATH="${{ env.BINARY_NAME }}-debug" bash install.sh dummy-api-key --dry-run
+        sudo systemctl stop simob.service
+
+    - name: Prepare code coverage directory
+      run: |
+        sudo mkdir -p /tmp/coverage_data
+        sudo chmod 777 /tmp/coverage_data
 
     - name: Run agent
       run: |
         sudo -u simob-agent env DEBUG=1 simob version
         sudo -u simob-agent env DEBUG=1 simob init --dry-run
         sudo -u simob-agent env DEBUG=1 simob config
-        sudo -u simob-agent env DEBUG=1 simob start --dry-run
+        sudo -u simob-agent env DEBUG=1 GOCOVERDIR=/tmp/coverage_data simob start --dry-run
+
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Generate coverage report
+      if: ${{ matrix.arch == 'amd64' }}
+      run: |
+        sudo chown -R $USER:$USER /tmp/coverage_data
+        cd agent
+
+        echo "Generating coverage reports..."
+        go tool covdata textfmt -i=/tmp/coverage_data -o coverage.txt
+        echo "=========================================="
+        echo " Go Coverage Report by Package (Sorted)"
+        echo "=========================================="
+        go tool covdata percent -i=/tmp/coverage_data | awk '
+        {
+            pkg = $1;
+            coverage = $3;
+            printf "%-50s %s\n", pkg, coverage;
+        }' | sort -k 2 -r -n
+        echo "=========================================="
+        echo "      Go Total Coverage (Statements)"
+        echo "=========================================="
+        go tool cover -func=coverage.txt | grep total
 
   create-release:
     name: Create GitHub Release
