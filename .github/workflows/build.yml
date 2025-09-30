@@ -178,5 +178,5 @@ jobs:
         files: |
           artifacts/preview-linux-amd64/install.sh
           artifacts/checksums
-          artifacts/preview-linux-amd64/simob-linux-amd64
-          artifacts/preview-linux-arm64/simob-linux-arm64
+          artifacts/simob-linux-amd64
+          artifacts/simob-linux-arm64
