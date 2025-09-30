@@ -153,7 +153,6 @@ jobs:
     name: Create GitHub Release
     needs: install-and-run
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' && github.ref_type == 'tag'
     permissions:
       contents: write
 
@@ -166,16 +165,18 @@ jobs:
     - name: Generate checksums
       run: |
         cd artifacts
+        mv preview-*/simob-* .
         shasum -a 256 simob-* > checksums
         cat checksums
 
     - name: Create GitHub Release
+      if: github.event_name == 'push' && github.ref_type == 'tag'
       uses: softprops/action-gh-release@v1
       with:
         tag_name: ${{ github.ref_name }}
         name: Release ${{ github.ref_name }}
         files: |
           artifacts/preview-linux-amd64/install.sh
-          artifacts/preview-linux-amd64/checksums
+          artifacts/checksums
           artifacts/preview-linux-amd64/simob-linux-amd64
           artifacts/preview-linux-arm64/simob-linux-arm64
