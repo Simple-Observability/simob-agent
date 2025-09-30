@@ -54,7 +54,6 @@ func Update() error {
 	if err != nil {
 		return fmt.Errorf("error checking for updates: %v", err)
 	}
-	fmt.Printf("%+v\n", *updateInfo)
 
 	// Check and compare versions
 	if !targetVersionIsNewer(version.Version, updateInfo.Version) {
