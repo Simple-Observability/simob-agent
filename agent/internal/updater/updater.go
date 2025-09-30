@@ -1,6 +1,7 @@
 package updater
 
 import (
+	"bufio"
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
@@ -25,6 +26,9 @@ const tempSuffix = ".new"
 
 // restartFileName is the name of the file created to signal a restart is needed
 const restartFileName = "restart"
+
+// httpClient is a shared HTTP client
+var httpClient = &http.Client{Timeout: 10 * time.Second}
 
 // remoteApiUrl is the URL of the remote API that is called to get
 // info about the latest updates.
@@ -139,8 +143,7 @@ func binaryName() string {
 
 // checkForUpdate checks the remote API for updates.
 func checkForUpdate() (*UpdateInfo, error) {
-	client := &http.Client{Timeout: 5 * time.Second}
-	resp, err := client.Get(remoteApiUrl + "/updates/")
+	resp, err := httpClient.Get(remoteApiUrl + "/updates/")
 	if err != nil {
 		return nil, fmt.Errorf("failed to check for updates: %w", err)
 	}
@@ -160,11 +163,61 @@ func checkForUpdate() (*UpdateInfo, error) {
 		return nil, fmt.Errorf("invalid JSON in update response: %w", err)
 	}
 
+	downloadURL := fmt.Sprintf("%s/%s", apiResp.URL, binaryName())
+
+	expectedChecksum := strings.TrimSpace(apiResp.Checksum)
+	// Prefer manifest approach: try to download checksums
+	manifestChecksum, err := downloadChecksum(apiResp.URL, binaryName())
+	if err != nil {
+		fmt.Printf("Warning: could not fetch manifest checksum: %v\n", err)
+	}
+	if manifestChecksum != "" {
+		expectedChecksum = manifestChecksum
+	}
+
+	// Fatal error if we still don’t have a checksum
+	if expectedChecksum == "" {
+		return nil, fmt.Errorf("no checksum available for binary %q (version %s, url %s)", binaryName(), apiResp.Version, apiResp.URL)
+	}
+
 	return &UpdateInfo{
 		Version:     apiResp.Version,
-		DownloadURL: fmt.Sprintf("%s/%s", apiResp.URL, binaryName()),
-		Checksum:    apiResp.Checksum,
+		DownloadURL: downloadURL,
+		Checksum:    expectedChecksum,
 	}, nil
+}
+
+// downloadChecksum downloads <baseUrl>/checksums and returns the checksum for binaryName
+func downloadChecksum(baseURL, binaryName string) (string, error) {
+	manifestURL := strings.TrimRight(baseURL, "/") + "/checksums"
+	resp, err := httpClient.Get(manifestURL)
+	if err != nil {
+		return "", fmt.Errorf("failed to fetch checksums manifest: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("manifest not found: %s (status %d)", manifestURL, resp.StatusCode)
+	}
+
+	scanner := bufio.NewScanner(resp.Body)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		// Skip empty lines
+		if line == "" {
+			continue
+		}
+		// Expected format: "<checksum> <filename>"
+		parts := strings.Fields(line)
+		checksum := parts[0]
+		name := parts[1]
+		if name == binaryName {
+			return checksum, nil
+		}
+	}
+	if err := scanner.Err(); err != nil {
+		return "", fmt.Errorf("error scanning checksums manifest: %w", err)
+	}
+	return "", fmt.Errorf("binary %q not listed in checksums manifest", binaryName)
 }
 
 // targetVersionIsNewer compares two semantic version strings in the format "MAJOR.MINOR.PATCH"
