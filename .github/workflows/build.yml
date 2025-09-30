@@ -153,7 +153,6 @@ jobs:
     name: Create GitHub Release
     needs: install-and-run
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' && github.ref_type == 'tag'
     permissions:
       contents: write
 
@@ -170,6 +169,7 @@ jobs:
         cat checksums
 
     - name: Create GitHub Release
+      if: github.event_name == 'push' && github.ref_type == 'tag'
       uses: softprops/action-gh-release@v1
       with:
         tag_name: ${{ github.ref_name }}
