@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"strconv"
 	"syscall"
+
+	"agent/internal/logger"
 )
 
 const PIDFilename = "pid"
@@ -28,6 +30,8 @@ func AcquireLock() error {
 
 	// 'O_EXCL' will cause an error if file already exists
 	if err != nil {
+		logger.Log.Debug("Encountered an error while acquiring lock", "error", err)
+
 		if !errors.Is(err, fs.ErrExist) {
 			return fmt.Errorf("failed to create pid file: %w", err)
 		}
@@ -36,10 +40,12 @@ func AcquireLock() error {
 		oldPID, err := readPID()
 		if err != nil {
 			// If we can't read the PID, we can't be sure, but it's likely a corrupt/stale lock.
+			logger.Log.Debug("Failed to read existing PID file", "error", err)
 			return overwritePIDFile(pidFilepath, currentPID)
 		}
 
 		if oldPID > 0 && isProcessRunning(oldPID) {
+			logger.Log.Debug("Found process running", "PID", oldPID)
 			return ErrAlreadyRunning
 		}
 
