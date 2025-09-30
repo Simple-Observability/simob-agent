@@ -163,6 +163,12 @@ jobs:
       with:
         path: artifacts
 
+    - name: Generate checksums
+      run: |
+        cd artifacts
+        shasum -a 256 simob-* > checksums
+        cat checksums
+
     - name: Create GitHub Release
       uses: softprops/action-gh-release@v1
       with:
@@ -170,5 +176,6 @@ jobs:
         name: Release ${{ github.ref_name }}
         files: |
           artifacts/preview-linux-amd64/install.sh
+          artifacts/preview-linux-amd64/checksums
           artifacts/preview-linux-amd64/simob-linux-amd64
           artifacts/preview-linux-arm64/simob-linux-arm64
