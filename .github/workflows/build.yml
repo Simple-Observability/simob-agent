@@ -166,7 +166,7 @@ jobs:
     - name: Generate checksums
       run: |
         cd artifacts
-        shasum -a 256 simob-* > checksums
+        shasum -a 256 preview-*/simob-* > checksums
         cat checksums
 
     - name: Create GitHub Release
@@ -176,6 +176,6 @@ jobs:
         name: Release ${{ github.ref_name }}
         files: |
           artifacts/preview-linux-amd64/install.sh
-          artifacts/preview-linux-amd64/checksums
+          artifacts/checksums
           artifacts/preview-linux-amd64/simob-linux-amd64
           artifacts/preview-linux-arm64/simob-linux-arm64
