@@ -165,7 +165,8 @@ jobs:
     - name: Generate checksums
       run: |
         cd artifacts
-        shasum -a 256 preview-*/simob-* > checksums
+        mv preview-*/simob-* .
+        shasum -a 256 simob-* > checksums
         cat checksums
 
     - name: Create GitHub Release
