@@ -81,9 +81,9 @@ var diskMetrics = []struct {
 	{"disk_free_bytes", "bytes", func(d *disk.UsageStat) float64 { return float64(d.Free) }},
 	{"disk_used_bytes", "bytes", func(d *disk.UsageStat) float64 { return float64(d.Used) }},
 	{"disk_used_ratio", "%", func(d *disk.UsageStat) float64 { return d.UsedPercent / 100 }},
-	{"disk_inodes_total", "no", func(d *disk.UsageStat) float64 { return float64(d.InodesTotal) }},
-	{"disk_inodes_free", "no", func(d *disk.UsageStat) float64 { return float64(d.InodesFree) }},
-	{"disk_inodes_used", "no", func(d *disk.UsageStat) float64 { return float64(d.InodesUsed) }},
+	{"disk_inodes_total_total", "no", func(d *disk.UsageStat) float64 { return float64(d.InodesTotal) }},
+	{"disk_inodes_free_total", "no", func(d *disk.UsageStat) float64 { return float64(d.InodesFree) }},
+	{"disk_inodes_used_total", "no", func(d *disk.UsageStat) float64 { return float64(d.InodesUsed) }},
 	{"disk_inodes_used_ratio", "%", func(d *disk.UsageStat) float64 { return d.InodesUsedPercent / 100 }},
 }
 
