@@ -121,7 +121,7 @@ var diskIOMetrics = []struct {
 		},
 	},
 	{
-		"disk_used_ratio", "%",
+		"disk_busy_ratio", "%",
 		func(current, previous *disk.IOCountersStat, deltaT float64) float64 {
 			deltaIoTime := float64(current.IoTime - previous.IoTime)
 			ratio := deltaIoTime / deltaT
