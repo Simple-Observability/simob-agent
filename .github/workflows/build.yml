@@ -52,8 +52,8 @@ jobs:
 
     - name: Install dependencies
       run: |
-        apt update
-        apt install -y libsystemd-dev
+        sudo apt update
+        sudo apt install -y libsystemd-dev
         go mod download
       working-directory: ./agent
 
