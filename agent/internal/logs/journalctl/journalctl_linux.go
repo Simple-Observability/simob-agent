@@ -114,7 +114,6 @@ func (c *JournalCTLCollector) readJournal(ctx context.Context, out chan<- logs.L
 		case <-ctx.Done():
 			return
 		default:
-			fmt.Println("Waiting on new journal entry...")
 			r := c.journal.Wait(sdjournal.IndefiniteWait)
 			if r == sdjournal.SD_JOURNAL_APPEND {
 				// TODO Isn't it better to return the result here and do the rest instead of embedding the logic deep into the call stack?
