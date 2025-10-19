@@ -1,6 +1,26 @@
 <p align="center">
-  <img src="./logo.svg" width="240"/>
+  <img src="./logo.svg" width="180"/>
 </p>
+
+<div align="center">
+
+**Simple Observability Agent** — `simob`
+
+Simple, lightweight, zero-config monitoring for your servers.
+
+<h3>
+  <a href="https://simpleobservability.com">Homepage</a> |
+  <a href="https://simpleobservability.com/docs">Docs</a> |
+  <a href="https://app.simpleobservability.com">App</a>
+</h3>
+
+[![Build](https://github.com/simple-observability/simob-agent/actions/workflows/build.yml/badge.svg)](https://github.com/simple-observability/simob-agent/actions/workflows/build.yml)
+[![Release](https://img.shields.io/github/release/simple-observability/simob-agent?color=blue)](https://github.com/simple-observability/simob-agent/actions/workflows/build.yml)
+[![License](https://img.shields.io/github/license/simple-observability/simob-agent?color=yellow)](https://github.com/simple-observability/simob-agent/releases/latest)
+
+</div>
+
+---
 
 Simple Observability Agent **(simob)** is a lightweight agent designed to
 collect monitoring data from servers and forward it to
