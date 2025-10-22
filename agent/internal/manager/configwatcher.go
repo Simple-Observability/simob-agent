@@ -34,11 +34,11 @@ func (r *ConfigWatcher) Start(ctx context.Context, initialCfg *collection.Collec
 	}
 	r.initialHash = hash
 
-	go r.Run(ctx, initialCfg)
+	go r.run(ctx, initialCfg)
 }
 
 // Run is the main loop for checking config changes with dynamic intervals.
-func (r *ConfigWatcher) Run(ctx context.Context, initialCfg *collection.CollectionConfig) {
+func (r *ConfigWatcher) run(ctx context.Context, initialCfg *collection.CollectionConfig) {
 	currentTickDuration := determineTickDuration(initialCfg)
 
 	// Create the initial ticker

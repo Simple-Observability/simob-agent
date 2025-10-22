@@ -99,9 +99,8 @@ func Start() {
 
 	// Start config watcher
 	if !dryRun && clcCfg != nil {
-		configRealoder := manager.NewConfigWatcher(client)
-		configRealoder.Run(ctx, clcCfg)
-
+		configReloader := manager.NewConfigWatcher(client)
+		configReloader.Start(ctx, clcCfg)
 	}
 
 	// Used to wait for collectors to exit/stop
