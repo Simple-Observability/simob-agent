@@ -1,6 +1,9 @@
-<p align="center">
-  <img src="./logo.svg" width="180"/>
-</p>
+<div align="center">
+  <picture>
+    <source media="(prefers-color-scheme: light)" srcset="./logo-primary.svg">
+    <img alt="Simple Observability logo" src="./logo-white.svg" width="180">
+  </picture>
+</div>
 
 <div align="center">
 

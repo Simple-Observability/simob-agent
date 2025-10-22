@@ -20,6 +20,7 @@ import (
 	"agent/internal/logger"
 	"agent/internal/logs"
 	logsRegistry "agent/internal/logs/registry"
+	"agent/internal/manager"
 	"agent/internal/metrics"
 	metricsRegistry "agent/internal/metrics/registry"
 )
@@ -34,28 +35,6 @@ var startCmd = &cobra.Command{
 
 func init() {
 	startCmd.Flags().BoolVar(&dryRun, "dry-run", false, "Start a short dry run where collected data is redirected to stdout")
-}
-
-func waitForConfig(ctx context.Context, client *api.Client) (*collection.CollectionConfig, error) {
-	ticker := time.NewTicker(5 * time.Second)
-	defer ticker.Stop()
-
-	for {
-		cfg, err := client.GetCollectionConfig()
-		if err != nil {
-			logger.Log.Error("failed to fetch collection config. retrying in 5s...", "error", err)
-		} else if cfg != nil {
-			logger.Log.Info("Fetched valid collection config.")
-			return cfg, nil
-		}
-
-		select {
-		case <-ctx.Done():
-			return nil, ctx.Err()
-		case <-ticker.C:
-			continue
-		}
-	}
 }
 
 func Start() {
@@ -110,9 +89,9 @@ func Start() {
 	if dryRun {
 		clcCfg = nil
 	} else {
-		clcCfg, err = waitForConfig(ctx, client)
+		clcCfg, err = client.GetCollectionConfig()
 		if err != nil {
-			logger.Log.Error("exiting due to config wait failure", "error", err)
+			logger.Log.Error("exiting due to error when fetching config", "error", err)
 			common.ReleaseLock()
 			os.Exit(1)
 		}
@@ -120,46 +99,8 @@ func Start() {
 
 	// Start config watcher
 	if !dryRun && clcCfg != nil {
-		initialHash, err := clcCfg.Hash()
-		if err != nil {
-			logger.Log.Error("failed to compute initial config hash", "error", err)
-			common.ReleaseLock()
-			os.Exit(1)
-		}
-
-		go func() {
-			ticker := time.NewTicker(5 * time.Minute)
-			defer ticker.Stop()
-			for {
-				select {
-				case <-ctx.Done():
-					return
-				case <-ticker.C:
-					newCfg, err := client.GetCollectionConfig()
-					if err != nil {
-						logger.Log.Warn("Failed to fetch config for change detection", "error", err)
-						continue
-					}
-					if newCfg == nil {
-						continue
-					}
-					newHash, err := newCfg.Hash()
-					if err != nil {
-						logger.Log.Warn("Failed to hash new config", "error", err)
-						continue
-					}
-					// Config hash changed, so we exit with status 1 to trigger a restart.
-					// Using exit code 1 ensures systemd restarts the agent when Restart=on-failure is set,
-					// which helps users who haven't updated their service to Restart=always.
-					// Although this exit looks like a failure, it’s intentional to reload the new config.
-					if newHash != initialHash {
-						logger.Log.Info("Configuration has changed. Exiting for auto-restart.")
-						common.ReleaseLock()
-						os.Exit(1)
-					}
-				}
-			}
-		}()
+		configReloader := manager.NewConfigWatcher(client)
+		configReloader.Start(ctx, clcCfg)
 	}
 
 	// Used to wait for collectors to exit/stop
