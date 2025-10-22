@@ -105,10 +105,6 @@ func (c *Client) get(path string) (*http.Response, error) {
 		return nil, fmt.Errorf("request failed: %w", err)
 	}
 
-	if res.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("GET /configs/ failed with status: %d", res.StatusCode)
-	}
-
 	if res.StatusCode < 200 || res.StatusCode >= 300 {
 		var buf [512]byte
 		n, _ := res.Body.Read(buf[:])
