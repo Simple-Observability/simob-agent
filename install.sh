@@ -12,12 +12,37 @@ INSTALL_DIR="/opt/simob"
 INSTALL_PATH="$INSTALL_DIR"/"$SERVICE_NAME"
 SERVICE_FILE_PATH="/etc/systemd/system/${SERVICE_NAME}.service"
 
-# Check if API key argument is provided
-if [[ -z "$1" ]]; then
-  echo "[x] Usage: sudo ./install.sh <API_KEY>"
+# -------------------- Parse options --------------------
+# Default values
+NO_JOURNAL_ACCESS=false
+API_KEY=""
+
+for arg in "$@"; do
+  case "$arg" in
+    --no-journal-access)
+      NO_JOURNAL_ACCESS=true
+      shift
+      ;;
+    *)
+      if [[ -z "$API_KEY" ]]; then
+        API_KEY="$arg"
+        shift
+      else
+        echo "[x] Unexpected extra argument: $arg"
+        echo "Usage: sudo install.sh <API_KEY> [--no-journal-access]"
+        exit 1
+      fi
+      ;;
+  esac
+done
+
+# Check if API key argument was provided
+if [[ -z "$API_KEY" ]]; then
+  echo "[x] Missing API key"
+  echo "Usage: sudo install.sh <API_KEY> [--no-journal-access]"
   exit 1
 fi
-API_KEY="$1"
+# -------------------------------------------------------
 
 # Ensure this install script is run as root.
 if [[ "$EUID" -ne 0 ]]; then
@@ -43,7 +68,7 @@ if [[ -z "${BINARY_PATH}" ]]; then
       ;;
   esac
   BINARY_URL="https://github.com/Simple-Observability/simob-agent/releases/latest/download/simob-${OS}-${ARCH}"
-  DOWNLOAD_DEST="/tmp/"
+  DOWNLOAD_DEST="/tmp"
   DOWNLOAD_FILE="${DOWNLOAD_DEST}/simob-${OS}-${ARCH}"
   echo "[*] Downloading binary from $BINARY_URL to $DOWNLOAD_FILE..."
   curl -# -L -o "$DOWNLOAD_FILE" "$BINARY_URL"
@@ -66,6 +91,14 @@ groupadd --force "$CUSTOM_GROUP"
 echo "[+] Adding $REAL_USER and $CUSTOM_USER to $CUSTOM_GROUP group..."
 usermod -aG "$CUSTOM_GROUP" "$REAL_USER"
 usermod -aG "$CUSTOM_GROUP" "$CUSTOM_USER"
+
+# Conditionally add the simob user to the "systemd-journal" group
+if [[ "$NO_JOURNAL_ACCESS" == false ]]; then
+  echo "[+] Granting journal access to $CUSTOM_USER..."
+  usermod -aG systemd-journal "$CUSTOM_USER"
+else
+  echo "[*] Skipping journal access for $CUSTOM_USER (--no-journal-access flag set)"
+fi
 
 # Create necessary directories and assign ownership
 echo "[+] Creating directories and setting custom permissions ..."
