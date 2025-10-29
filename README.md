@@ -24,10 +24,10 @@ runtime dependencies and a one command install process.
 ### Prebuilt binaries
 You can install the agent with a single command:
 ```bash
-$ curl -fsSL https://simpleobservability.com/install.sh | sudo bash -s -- <SERVER_KEY>
+$ curl -fsSL https://simpleobservability.com/install.sh | sudo bash -s -- <SERVER_KEY> [optional flags]
 ```
-
-Replace <SERVER_KEY> with the one from your SimpleObservability.com account.
+> [!IMPORTANT]
+> Replace `<SERVER_KEY>` with the one from your SimpleObservability.com account.
 
 This will:
  - Create a dedicated user and group
@@ -35,14 +35,23 @@ This will:
  - Set up a systemd service
  - Initialize the agent with the provided server key
 
-The install script is fully documented with verbose comments and is designed to be easy to read,
-understand, and audit.
+> [!NOTE]
+> The install script is fully documented with verbose comments and is designed to be easy to read, understand, and audit.
+
+
+### Optional flags
+
+The install script supports some optional flags that control how the agent is installed and what permissions it has.
+
+#### `--no-journal-access`
+By default, the install script grants the `simob-agent` user read access to system logs by adding it to the `systemd-journal` group.
+If you don’t want the agent to read system logs you can disable this permission during installation:
 
 ### From source
 You can also build the agent binaries from source. During installation, set the environment variable `BINARY_PATH` to point to your built binary:
 
 ```bash
-$ sudo BINARY_PATH=<PATH TO BINARY> ./install.sh <SERVER_KEY>
+$ sudo BINARY_PATH=<PATH TO BINARY> bash install.sh <SERVER_KEY>
 ```
 
 ## Usage
