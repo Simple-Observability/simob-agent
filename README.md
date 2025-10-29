@@ -118,10 +118,11 @@ of sources
 
 ### Log Sources
 
-| Source      | Description           |
-|-------------|-----------------------|
-| **Apache**  | Collects access logs. |
-| **NGINX**   | Collects NGINX logs.  |
+| Source              | Description                                  |
+|---------------------|----------------------------------------------|
+| **Apache**          | Collects access logs.                        |
+| **NGINX**           | Collects NGINX logs.                         |
+| **Systemd Journal** | Collects system logs from services and units |
 
 ## Documentation
 For more detailed information, including advanced configuration and troubleshooting,
