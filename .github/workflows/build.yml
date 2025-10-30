@@ -120,12 +120,14 @@ jobs:
         sudo mkdir -p /tmp/coverage_data
         sudo chmod 777 /tmp/coverage_data
 
-    - name: Run agent
-      run: |
-        sudo -u simob-agent env DEBUG=1 simob version
-        sudo -u simob-agent env DEBUG=1 simob init --dry-run
-        sudo -u simob-agent env DEBUG=1 simob config
-        sudo -u simob-agent env DEBUG=1 GOCOVERDIR=/tmp/coverage_data simob start --dry-run
+    - name: Run agent (simob version)
+      run: sudo -u simob-agent env DEBUG=1 simob version
+
+    - name: Run agent (simob config)
+      run: sudo -u simob-agent env DEBUG=1 simob config
+
+    - name: Run agent (simob version)
+      run: sudo -u simob-agent env DEBUG=1 GOCOVERDIR=/tmp/coverage_data simob start --dry-run
 
     - name: Checkout repository
       uses: actions/checkout@v4
