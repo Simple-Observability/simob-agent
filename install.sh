@@ -16,12 +16,18 @@ SERVICE_FILE_PATH="/etc/systemd/system/${SERVICE_NAME}.service"
 # Default values
 NO_JOURNAL_ACCESS=false
 API_KEY=""
+EXTRA_ARGS=()
 
 for arg in "$@"; do
   case "$arg" in
     --no-journal-access)
       NO_JOURNAL_ACCESS=true
       shift
+      ;;
+    --)
+      shift
+      EXTRA_ARGS=("$@")  # everything after -- goes here
+      break
       ;;
     *)
       if [[ -z "$API_KEY" ]]; then
@@ -163,7 +169,7 @@ echo "[*] Checking simob version..."
 sudo -u $CUSTOM_USER "$INSTALL_PATH" version
 
 echo "[*] Initializing simob with provided API key..."
-sudo -u $CUSTOM_USER "$INSTALL_PATH" init "$API_KEY" "${@:2}"
+sudo -u $CUSTOM_USER "$INSTALL_PATH" init "$API_KEY" "${EXTRA_ARGS[@]}"
 echo "[+] Initialization complete."
 
 echo "[*] Starting simob systemd service..."
