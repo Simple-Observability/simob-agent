@@ -14,14 +14,14 @@ SERVICE_FILE_PATH="/etc/systemd/system/${SERVICE_NAME}.service"
 
 # -------------------- Parse options --------------------
 # Default values
-NO_JOURNAL_ACCESS=false
+NO_SYSTEM_READ=false
 API_KEY=""
 EXTRA_ARGS=()
 
 for arg in "$@"; do
   case "$arg" in
-    --no-journal-access)
-      NO_JOURNAL_ACCESS=true
+    --no-system-read)
+      NO_SYSTEM_READ=true
       shift
       ;;
     --)
@@ -35,7 +35,7 @@ for arg in "$@"; do
         shift
       else
         echo "[x] Unexpected extra argument: $arg"
-        echo "Usage: sudo install.sh <API_KEY> [--no-journal-access]"
+        echo "Usage: sudo install.sh <API_KEY> [--no-system-read]"
         exit 1
       fi
       ;;
@@ -45,7 +45,7 @@ done
 # Check if API key argument was provided
 if [[ -z "$API_KEY" ]]; then
   echo "[x] Missing API key"
-  echo "Usage: sudo install.sh <API_KEY> [--no-journal-access]"
+  echo "Usage: sudo install.sh <API_KEY> [--no-system-read]"
   exit 1
 fi
 # -------------------------------------------------------
@@ -98,14 +98,6 @@ echo "[+] Adding $REAL_USER and $CUSTOM_USER to $CUSTOM_GROUP group..."
 usermod -aG "$CUSTOM_GROUP" "$REAL_USER"
 usermod -aG "$CUSTOM_GROUP" "$CUSTOM_USER"
 
-# Conditionally add the simob user to the "systemd-journal" group
-if [[ "$NO_JOURNAL_ACCESS" == false ]]; then
-  echo "[+] Granting journal access to $CUSTOM_USER..."
-  usermod -aG systemd-journal "$CUSTOM_USER"
-else
-  echo "[*] Skipping journal access for $CUSTOM_USER (--no-journal-access flag set)"
-fi
-
 # Create necessary directories and assign ownership
 echo "[+] Creating directories and setting custom permissions ..."
 mkdir -p "$INSTALL_DIR"
@@ -125,6 +117,18 @@ ln -sf "$INSTALL_PATH" /usr/local/bin/${SERVICE_NAME}
 
 # Create and install the systemd service unit file
 echo "[+] Setting up systemd service..."
+
+# Optional system-wide read capability (default: enabled)
+if [ "${NO_SYSTEM_READ}" = true ]; then
+  SYSTEM_CAPABILITIES=""
+else
+  SYSTEM_CAPABILITIES="
+# Grant read/search access to the filesystem (bypassing some permission checks)
+AmbientCapabilities=CAP_DAC_READ_SEARCH
+CapabilityBoundingSet=CAP_DAC_READ_SEARCH
+"
+fi
+
 cat << EOF > "${SERVICE_FILE_PATH}"
 [Unit]
 Description=${SERVICE_NAME} daemon
@@ -136,11 +140,7 @@ ExecStart=${INSTALL_PATH} start
 Restart=always
 User=${CUSTOM_USER}
 Group=${CUSTOM_GROUP}
-
-# Grant read/search access to the filesystem (bypassing some permission checks)
-AmbientCapabilities=CAP_DAC_READ_SEARCH
-CapabilityBoundingSet=CAP_DAC_READ_SEARCH
-
+${SYSTEM_CAPABILITIES}
 # Prevent gaining any further privileges
 NoNewPrivileges=yes
 # Mount /usr, /boot, /etc read-only
