@@ -71,6 +71,18 @@ This will:
 > [!NOTE]
 > The install script is fully documented with verbose comments and is designed to be easy to read, understand, and audit.
 
+### Optional flags
+
+The install script supports some optional flags that control how the agent is installed and what permissions it has.
+
+#### `--no-journal-access`
+By default, the install script grants the `simob-agent` user read access to system logs by adding it to the `systemd-journal` group.
+If you don’t want the agent to read system logs you can append the flag during installation.
+
+#### `--no-system-read`
+By default, the install script grants the `simob-agent` service limited read access to the filesystem using the `CAP_DAC_READ_SEARCH` capability. This allows the agent to read log files located in system directories (e.g. /var/log/) even if it doesn’t have explicit file-level permissions.
+If you use the `--no-system-read` flag, this capability is not granted.
+
 ### From source
 You can also build the agent binaries from source. During installation, set the environment
 variable `BINARY_PATH` to point to your built binary:

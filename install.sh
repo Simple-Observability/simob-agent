@@ -15,6 +15,7 @@ SERVICE_FILE_PATH="/etc/systemd/system/${SERVICE_NAME}.service"
 # -------------------- Parse options --------------------
 # Default values
 NO_SYSTEM_READ=false
+NO_JOURNAL_ACCESS=false
 API_KEY=""
 EXTRA_ARGS=()
 
@@ -22,6 +23,10 @@ for arg in "$@"; do
   case "$arg" in
     --no-system-read)
       NO_SYSTEM_READ=true
+      shift
+      ;;
+    --no-journal-access)
+      NO_JOURNAL_ACCESS=true
       shift
       ;;
     --)
@@ -35,7 +40,7 @@ for arg in "$@"; do
         shift
       else
         echo "[x] Unexpected extra argument: $arg"
-        echo "Usage: sudo install.sh <API_KEY> [--no-system-read]"
+        echo "Usage: sudo install.sh <API_KEY> [--no-system-read] [--no-journal-access]"
         exit 1
       fi
       ;;
@@ -45,7 +50,7 @@ done
 # Check if API key argument was provided
 if [[ -z "$API_KEY" ]]; then
   echo "[x] Missing API key"
-  echo "Usage: sudo install.sh <API_KEY> [--no-system-read]"
+  echo "Usage: sudo install.sh <API_KEY> [--no-system-read] [--no-journal-access]"
   exit 1
 fi
 # -------------------------------------------------------
@@ -97,6 +102,14 @@ groupadd --force "$CUSTOM_GROUP"
 echo "[+] Adding $REAL_USER and $CUSTOM_USER to $CUSTOM_GROUP group..."
 usermod -aG "$CUSTOM_GROUP" "$REAL_USER"
 usermod -aG "$CUSTOM_GROUP" "$CUSTOM_USER"
+
+# Conditionally add the simob user to the "systemd-journal" group
+if [[ "$NO_JOURNAL_ACCESS" == false ]]; then
+  echo "[+] Granting journal access to $CUSTOM_USER..."
+  usermod -aG systemd-journal "$CUSTOM_USER"
+else
+  echo "[*] Skipping journal access for $CUSTOM_USER (--no-journal-access flag set)"
+fi
 
 # Create necessary directories and assign ownership
 echo "[+] Creating directories and setting custom permissions ..."
