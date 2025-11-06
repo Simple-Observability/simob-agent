@@ -183,9 +183,7 @@ func (c *JournalCTLCollector) processJournalEntry(entry *sdjournal.JournalEntry)
 	// Prepare metadata fields
 	var metaFields = map[string]string{
 		"priority":   severity,
-		"pid":        entry.Fields[sdjournal.SD_JOURNAL_FIELD_PID],
 		"identifier": entry.Fields[sdjournal.SD_JOURNAL_FIELD_SYSLOG_IDENTIFIER],
-		"transport":  entry.Fields[sdjournal.SD_JOURNAL_FIELD_TRANSPORT],
 	}
 	logEntry.Metadata = metaFields
 
