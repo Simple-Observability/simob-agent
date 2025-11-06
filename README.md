@@ -57,10 +57,10 @@ platform takes care of the rest.
 ### Prebuilt binaries
 You can install the agent with a single command:
 ```bash
-$ curl -fsSL https://simpleobservability.com/install.sh | sudo bash -s -- <SERVER_KEY>
+$ curl -fsSL https://simpleobservability.com/install.sh | sudo bash -s -- <SERVER_KEY> [optional flags]
 ```
-
-Replace <SERVER_KEY> with the one from your SimpleObservability.com account.
+> [!IMPORTANT]
+> Replace `<SERVER_KEY>` with the one from your SimpleObservability.com account.
 
 This will:
  - Create a dedicated user and group
@@ -68,15 +68,27 @@ This will:
  - Set up a systemd service
  - Initialize the agent with the provided server key
 
-The install script is fully documented with verbose comments and is designed to be easy
-to read, understand, and audit.
+> [!NOTE]
+> The install script is fully documented with verbose comments and is designed to be easy to read, understand, and audit.
+
+### Optional flags
+
+The install script supports some optional flags that control how the agent is installed and what permissions it has.
+
+#### `--no-journal-access`
+By default, the install script grants the `simob-agent` user read access to system logs by adding it to the `systemd-journal` group.
+If you don’t want the agent to read system logs you can append the flag during installation.
+
+#### `--no-system-read`
+By default, the install script grants the `simob-agent` service limited read access to the filesystem using the `CAP_DAC_READ_SEARCH` capability. This allows the agent to read log files located in system directories (e.g. /var/log/) even if it doesn’t have explicit file-level permissions.
+If you use the `--no-system-read` flag, this capability is not granted.
 
 ### From source
 You can also build the agent binaries from source. During installation, set the environment
 variable `BINARY_PATH` to point to your built binary:
 
 ```bash
-$ sudo BINARY_PATH=<PATH TO BINARY> ./install.sh <SERVER_KEY>
+$ sudo BINARY_PATH=<PATH TO BINARY> bash install.sh <SERVER_KEY>
 ```
 
 ## Usage
@@ -110,10 +122,11 @@ of sources
 
 ### Log Sources
 
-| Source      | Description           |
-|-------------|-----------------------|
-| **Apache**  | Collects access logs. |
-| **NGINX**   | Collects NGINX logs.  |
+| Source              | Description                                  |
+|---------------------|----------------------------------------------|
+| **Apache**          | Collects access logs.                        |
+| **NGINX**           | Collects NGINX logs.                         |
+| **Systemd Journal** | Collects system logs from services and units |
 
 ## Documentation
 For more detailed information, including advanced configuration and troubleshooting,
