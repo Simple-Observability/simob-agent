@@ -6,6 +6,7 @@ package journalctl
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"sync"
 
 	"github.com/coreos/go-systemd/sdjournal"
@@ -165,31 +166,29 @@ func (c *JournalCTLCollector) processJournalEntry(entry *sdjournal.JournalEntry)
 	// Parse timestamp
 	tsMicro := entry.RealtimeTimestamp
 	logEntry.Timestamp = int64(tsMicro / 1000)
+
+	// Parse priority/severity
+	priorityStr := entry.Fields[sdjournal.SD_JOURNAL_FIELD_PRIORITY]
+	priorityInt, err := strconv.Atoi(priorityStr)
+	if err != nil {
+		logger.Log.Error("can't process priority. using fallback value", "value", priorityStr, "error", err)
+		priorityInt = 6
+	}
+	if priorityInt < 0 || priorityInt > 7 {
+		logger.Log.Error("parsed priority out of bounds. using fallback value", "value", priorityInt, "error", err)
+		priorityInt = 6
+	}
+	severity := severityMap[priorityInt]
+
+	// Prepare metadata fields
+	var metaFields = map[string]string{
+		"priority":   severity,
+		"pid":        entry.Fields[sdjournal.SD_JOURNAL_FIELD_PID],
+		"identifier": entry.Fields[sdjournal.SD_JOURNAL_FIELD_SYSLOG_IDENTIFIER],
+		"transport":  entry.Fields[sdjournal.SD_JOURNAL_FIELD_TRANSPORT],
+	}
+	logEntry.Metadata = metaFields
+
 	logEntry.Text = entry.Fields[sdjournal.SD_JOURNAL_FIELD_MESSAGE]
-
-	/*
-		Metadata fields, commented out for now but will integrated later
-
-		// Parse priority/severity
-		priorityStr := entry.Fields[sdjournal.SD_JOURNAL_FIELD_PRIORITY]
-		priorityInt, err := strconv.Atoi(priorityStr)
-		if err != nil {
-			logger.Log.Error("can't process priority. using fallback value", "value", priorityStr, "error", err)
-			priorityInt = 6
-		}
-		if priorityInt < 0 || priorityInt > 7 {
-			logger.Log.Error("parsed priority out of bounds. using fallback value", "value", priorityInt, "error", err)
-			priorityInt = 6
-		}
-		severity := severityMap[priorityInt]
-
-		var metaFields = map[string]string{
-			"pid": entry.Fields[sdjournal.SD_JOURNAL_FIELD_PID],
-			"identifier": entry.Fields[sdjournal.SD_JOURNAL_FIELD_SYSLOG_IDENTIFIER],
-			"priority": severity,
-			"message": entry.Fields[sdjournal.SD_JOURNAL_FIELD_MESSAGE],
-			"transport": entry.Fields[sdjournal.SD_JOURNAL_FIELD_TRANSPORT],
-		}
-	*/
 	return logEntry, nil
 }
