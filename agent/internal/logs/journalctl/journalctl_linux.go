@@ -75,6 +75,7 @@ func (c *JournalCTLCollector) Start(ctx context.Context, out chan<- logs.LogEntr
 		journal.Close()
 		return fmt.Errorf("failed to seek to the end of the journal: %w", err)
 	}
+	journal.Next()
 
 	c.journal = journal
 
