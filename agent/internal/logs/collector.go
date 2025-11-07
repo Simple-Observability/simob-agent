@@ -2,6 +2,7 @@ package logs
 
 import (
 	"context"
+	"maps"
 	"strconv"
 	"sync"
 
@@ -16,6 +17,7 @@ type LogEntry struct {
 	Source    string            // Source file path
 	Text      string            // Raw log message
 	Labels    map[string]string // Key-value pairs for labels
+	Metadata  map[string]string // Key-value pairs for metadata
 }
 
 // Processor defines the signature for log line processing functions.
@@ -104,18 +106,18 @@ func DiscoverAvailableLogSources(collectors []LogCollector) []collection.LogSour
 }
 
 func convertLogEntryToPayload(entry LogEntry) exporter.LogPayload {
-	// Clone labels to avoid mutating the original map
-	labels := make(map[string]string, len(entry.Labels)+1)
-	for k, v := range entry.Labels {
-		labels[k] = v
-	}
-
+	labels := make(map[string]string)
+	maps.Copy(labels, entry.Labels)
 	// Add source to labels
 	labels["source"] = entry.Source
+
+	metadata := make(map[string]string)
+	maps.Copy(metadata, entry.Metadata)
 
 	return exporter.LogPayload{
 		Timestamp: strconv.FormatInt(entry.Timestamp, 10),
 		Labels:    labels,
+		Metadata:  metadata,
 		Message:   entry.Text,
 	}
 }

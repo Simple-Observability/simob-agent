@@ -26,9 +26,9 @@ jobs:
     strategy:
       matrix:
         include:
-        - { os: linux, arch: amd64 }
-        - { os: linux, arch: arm64 }
-    runs-on: ubuntu-latest
+        - { runner: 'ubuntu-24.04', os: linux, arch: amd64 }
+        - { runner: 'ubuntu-24.04-arm', os: 'linux', arch: 'arm64' }
+    runs-on: ${{ matrix.runner }}
 
     defaults:
       run:
@@ -51,7 +51,10 @@ jobs:
         echo "Go version used: $(go version)"
 
     - name: Install dependencies
-      run: go mod download
+      run: |
+        sudo apt update
+        sudo apt install -y libsystemd-dev
+        go mod download
       working-directory: ./agent
 
     - name: Build agent binaries
@@ -109,7 +112,7 @@ jobs:
 
     - name: Run install script
       run: |
-        sudo BINARY_PATH="${{ env.BINARY_NAME }}-debug" bash install.sh dummy-api-key --dry-run
+        sudo BINARY_PATH="${{ env.BINARY_NAME }}-debug" bash install.sh dummy-api-key -- --dry-run
         sudo systemctl stop simob.service
 
     - name: Prepare code coverage directory
@@ -117,12 +120,14 @@ jobs:
         sudo mkdir -p /tmp/coverage_data
         sudo chmod 777 /tmp/coverage_data
 
-    - name: Run agent
-      run: |
-        sudo -u simob-agent env DEBUG=1 simob version
-        sudo -u simob-agent env DEBUG=1 simob init --dry-run
-        sudo -u simob-agent env DEBUG=1 simob config
-        sudo -u simob-agent env DEBUG=1 GOCOVERDIR=/tmp/coverage_data simob start --dry-run
+    - name: Run agent (simob version)
+      run: sudo -u simob-agent env DEBUG=1 simob version
+
+    - name: Run agent (simob config)
+      run: sudo -u simob-agent env DEBUG=1 simob config
+
+    - name: Run agent (simob version)
+      run: sudo -u simob-agent env DEBUG=1 GOCOVERDIR=/tmp/coverage_data simob start --dry-run
 
     - name: Checkout repository
       uses: actions/checkout@v4

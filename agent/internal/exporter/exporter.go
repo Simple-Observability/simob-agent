@@ -53,6 +53,7 @@ type MetricPayload struct {
 type LogPayload struct {
 	Timestamp string            `json:"timestamp"` // Unix timestamp in milliseconds as a string
 	Labels    map[string]string `json:"labels"`
+	Metadata  map[string]string `json:"metadata"`
 	Message   string            `json:"message"`
 }
 

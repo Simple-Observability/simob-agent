@@ -12,12 +12,48 @@ INSTALL_DIR="/opt/simob"
 INSTALL_PATH="$INSTALL_DIR"/"$SERVICE_NAME"
 SERVICE_FILE_PATH="/etc/systemd/system/${SERVICE_NAME}.service"
 
-# Check if API key argument is provided
-if [[ -z "$1" ]]; then
-  echo "[x] Usage: sudo ./install.sh <API_KEY>"
+# -------------------- Parse options --------------------
+# Default values
+NO_SYSTEM_READ=false
+NO_JOURNAL_ACCESS=false
+API_KEY=""
+EXTRA_ARGS=()
+
+for arg in "$@"; do
+  case "$arg" in
+    --no-system-read)
+      NO_SYSTEM_READ=true
+      shift
+      ;;
+    --no-journal-access)
+      NO_JOURNAL_ACCESS=true
+      shift
+      ;;
+    --)
+      shift
+      EXTRA_ARGS=("$@")  # everything after -- goes here
+      break
+      ;;
+    *)
+      if [[ -z "$API_KEY" ]]; then
+        API_KEY="$arg"
+        shift
+      else
+        echo "[x] Unexpected extra argument: $arg"
+        echo "Usage: sudo install.sh <API_KEY> [--no-system-read] [--no-journal-access]"
+        exit 1
+      fi
+      ;;
+  esac
+done
+
+# Check if API key argument was provided
+if [[ -z "$API_KEY" ]]; then
+  echo "[x] Missing API key"
+  echo "Usage: sudo install.sh <API_KEY> [--no-system-read] [--no-journal-access]"
   exit 1
 fi
-API_KEY="$1"
+# -------------------------------------------------------
 
 # Ensure this install script is run as root.
 if [[ "$EUID" -ne 0 ]]; then
@@ -43,7 +79,7 @@ if [[ -z "${BINARY_PATH}" ]]; then
       ;;
   esac
   BINARY_URL="https://github.com/Simple-Observability/simob-agent/releases/latest/download/simob-${OS}-${ARCH}"
-  DOWNLOAD_DEST="/tmp/"
+  DOWNLOAD_DEST="/tmp"
   DOWNLOAD_FILE="${DOWNLOAD_DEST}/simob-${OS}-${ARCH}"
   echo "[*] Downloading binary from $BINARY_URL to $DOWNLOAD_FILE..."
   curl -# -L -o "$DOWNLOAD_FILE" "$BINARY_URL"
@@ -67,6 +103,14 @@ echo "[+] Adding $REAL_USER and $CUSTOM_USER to $CUSTOM_GROUP group..."
 usermod -aG "$CUSTOM_GROUP" "$REAL_USER"
 usermod -aG "$CUSTOM_GROUP" "$CUSTOM_USER"
 
+# Conditionally add the simob user to the "systemd-journal" group
+if [[ "$NO_JOURNAL_ACCESS" == false ]]; then
+  echo "[+] Granting journal access to $CUSTOM_USER..."
+  usermod -aG systemd-journal "$CUSTOM_USER"
+else
+  echo "[*] Skipping journal access for $CUSTOM_USER (--no-journal-access flag set)"
+fi
+
 # Create necessary directories and assign ownership
 echo "[+] Creating directories and setting custom permissions ..."
 mkdir -p "$INSTALL_DIR"
@@ -86,6 +130,18 @@ ln -sf "$INSTALL_PATH" /usr/local/bin/${SERVICE_NAME}
 
 # Create and install the systemd service unit file
 echo "[+] Setting up systemd service..."
+
+# Optional system-wide read capability (default: enabled)
+if [ "${NO_SYSTEM_READ}" = true ]; then
+  SYSTEM_CAPABILITIES=""
+else
+  SYSTEM_CAPABILITIES="
+# Grant read/search access to the filesystem (bypassing some permission checks)
+AmbientCapabilities=CAP_DAC_READ_SEARCH
+CapabilityBoundingSet=CAP_DAC_READ_SEARCH
+"
+fi
+
 cat << EOF > "${SERVICE_FILE_PATH}"
 [Unit]
 Description=${SERVICE_NAME} daemon
@@ -97,11 +153,7 @@ ExecStart=${INSTALL_PATH} start
 Restart=always
 User=${CUSTOM_USER}
 Group=${CUSTOM_GROUP}
-
-# Grant read/search access to the filesystem (bypassing some permission checks)
-AmbientCapabilities=CAP_DAC_READ_SEARCH
-CapabilityBoundingSet=CAP_DAC_READ_SEARCH
-
+${SYSTEM_CAPABILITIES}
 # Prevent gaining any further privileges
 NoNewPrivileges=yes
 # Mount /usr, /boot, /etc read-only
@@ -130,7 +182,7 @@ echo "[*] Checking simob version..."
 sudo -u $CUSTOM_USER "$INSTALL_PATH" version
 
 echo "[*] Initializing simob with provided API key..."
-sudo -u $CUSTOM_USER "$INSTALL_PATH" init "$API_KEY" "${@:2}"
+sudo -u $CUSTOM_USER "$INSTALL_PATH" init "$API_KEY" "${EXTRA_ARGS[@]}"
 echo "[+] Initialization complete."
 
 echo "[*] Starting simob systemd service..."
