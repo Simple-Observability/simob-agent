@@ -12,10 +12,40 @@ INSTALL_DIR="/opt/simob"
 INSTALL_PATH="$INSTALL_DIR"/"$SERVICE_NAME"
 SERVICE_FILE_PATH="/etc/systemd/system/${SERVICE_NAME}.service"
 
+# Checks if the 'curl' command-line tool is installed and available in the PATH.
+check_dependencies() {
+  if ! command -v curl &> /dev/null; then
+    echo "[x] Error: The 'curl' command is not installed."
+    echo "    Please install curl (e.g., 'sudo apt install curl') and try again."
+    exit 1
+  fi
+}
+
+# Validates the provided API key against the remote backend via cURL.
+check_key_validity() {
+  local key="$1"
+  echo "[*] Validating API key on remote server..."
+  HTTP_CODE=$(
+    curl -s \
+    -o /dev/null \
+    -w "%{http_code}" \
+    -H "Content-Type: application/json" \
+    -d "{\"api_key\": \"$key\"}" \
+    "https://api.simpleobservability.com/check-key/"
+  )
+  if [ "$HTTP_CODE" -eq 200 ]; then
+    echo "[+] API key is valid."
+  else
+    echo "[x] Error: API key check failed. Received HTTP $HTTP_CODE."
+    exit 1
+  fi
+}
+
 # -------------------- Parse options --------------------
 # Default values
 NO_SYSTEM_READ=false
 NO_JOURNAL_ACCESS=false
+SKIP_KEY_CHECK=false
 API_KEY=""
 EXTRA_ARGS=()
 
@@ -27,6 +57,10 @@ for arg in "$@"; do
       ;;
     --no-journal-access)
       NO_JOURNAL_ACCESS=true
+      shift
+      ;;
+    --skip-key-check)
+      SKIP_KEY_CHECK=true
       shift
       ;;
     --)
@@ -54,6 +88,14 @@ if [[ -z "$API_KEY" ]]; then
   exit 1
 fi
 # -------------------------------------------------------
+
+# Dependency check
+check_dependencies
+
+# Check API key, unless skip flag is set
+if [[ "$SKIP_KEY_CHECK" == "false" ]]; then
+  check_key_validity "$API_KEY"
+fi
 
 # Ensure this install script is run as root.
 if [[ "$EUID" -ne 0 ]]; then
