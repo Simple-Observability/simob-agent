@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"strconv"
 	"sync"
+	"time"
 
 	"github.com/coreos/go-systemd/sdjournal"
 
@@ -115,7 +116,7 @@ func (c *JournalCTLCollector) readJournal(ctx context.Context, out chan<- logs.L
 		case <-ctx.Done():
 			return
 		default:
-			r := c.journal.Wait(sdjournal.IndefiniteWait)
+			r := c.journal.Wait(1 * time.Second)
 			if r == sdjournal.SD_JOURNAL_APPEND {
 				// TODO Isn't it better to return the result here and do the rest instead of embedding the logic deep into the call stack?
 				if err := c.processNewEntries(out); err != nil {
