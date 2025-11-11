@@ -41,6 +41,86 @@ check_key_validity() {
   fi
 }
 
+# Fetch the agent binary
+fetch_binary() {
+  if [[ -z "${BINARY_PATH}" ]]; then
+    # Download the last version of the prebuilt binary if BINARY_PATH is not defined
+    OS="$(uname | tr '[:upper:]' '[:lower:]')"
+    ARCH="$(uname -m)"
+    case "$ARCH" in
+      x86_64)
+        ARCH="amd64"
+        ;;
+      aarch64)
+        ARCH="arm64"
+        ;;
+      *)
+        echo "[x] Unsupported architecture: $ARCH" >&2
+        return 1
+        ;;
+    esac
+    BINARY_URL="https://github.com/Simple-Observability/simob-agent/releases/latest/download/simob-${OS}-${ARCH}"
+    DOWNLOAD_DEST="/tmp"
+    DOWNLOAD_FILE="${DOWNLOAD_DEST}/simob-${OS}-${ARCH}"
+    echo "[*] Downloading binary from $BINARY_URL to $DOWNLOAD_FILE..."
+    curl -# -L -o "$DOWNLOAD_FILE" "$BINARY_URL"
+    export BINARY_PATH="$DOWNLOAD_FILE"
+    echo "[+] Binary downloaded to: $BINARY_PATH"
+  else
+    # If BINARY_PATH is set, run the install process with an existing binary (either downloaded
+    # or built from source)
+    echo "[*] Using existing binary at: $BINARY_PATH"
+  fi
+}
+
+setup_systemd() {
+  # Create and install the systemd service unit file
+  echo "[+] Setting up systemd service..."
+
+  # Optional system-wide read capability (default: enabled)
+  local SYSTEM_CAPABILITIES=""
+  if [ "${NO_SYSTEM_READ}" = false ]; then
+    SYSTEM_CAPABILITIES="
+# Grant read/search access to the filesystem (bypassing some permission checks)
+AmbientCapabilities=CAP_DAC_READ_SEARCH
+CapabilityBoundingSet=CAP_DAC_READ_SEARCH
+    "
+  fi
+
+  # Create service file
+  cat <<EOF > "${SERVICE_FILE_PATH}"
+[Unit]
+Description=${SERVICE_NAME} daemon
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=${INSTALL_PATH} start
+Restart=always
+User=${CUSTOM_USER}
+Group=${CUSTOM_GROUP}
+${SYSTEM_CAPABILITIES}
+# Prevent gaining any further privileges
+NoNewPrivileges=yes
+# Mount /usr, /boot, /etc read-only
+ProtectSystem=full
+# Isolate /home, /root, /run/user
+ProtectHome=yes
+# Private /tmp and /var/tmp
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+  echo "[+] Reloading systemd ..."
+  systemctl daemon-reload
+
+  echo "[*] Starting simob systemd service..."
+  systemctl start simob.service
+  echo "[+] simob service started."
+}
+
 # -------------------- Parse options --------------------
 # Default values
 NO_SYSTEM_READ=false
@@ -97,41 +177,22 @@ if [[ "$SKIP_KEY_CHECK" == "false" ]]; then
   check_key_validity "$API_KEY"
 fi
 
+# Check if system is running under systemd
+if pidof systemd > /dev/null; then
+  SKIP_SYSTEMD=false
+else
+  echo "[!] Skipping systemctl setup: not running under systemd."
+  SKIP_SYSTEMD=true
+fi
+
 # Ensure this install script is run as root.
 if [[ "$EUID" -ne 0 ]]; then
   echo "[x] This installer needs to be run as root. Use sudo."
   exit 1
 fi
 
-# Capture the invoking user with the SUDO_USER environment variable.
-# $(whoami) is a fallback and ensures it still works if the script is somehow run directly as root
-REAL_USER=${SUDO_USER:-$(whoami)}
-echo "[*] Install script invocked by $REAL_USER"
-
-if [[ -z "${BINARY_PATH}" ]]; then
-  # Download the last version of the prebuilt binary if BINARY_PATH is not defined
-  OS="$(uname | tr '[:upper:]' '[:lower:]')"
-  ARCH="$(uname -m)"
-  case "$ARCH" in
-    x86_64)
-      ARCH="amd64"
-      ;;
-    aarch64)
-      ARCH="arm64"
-      ;;
-  esac
-  BINARY_URL="https://github.com/Simple-Observability/simob-agent/releases/latest/download/simob-${OS}-${ARCH}"
-  DOWNLOAD_DEST="/tmp"
-  DOWNLOAD_FILE="${DOWNLOAD_DEST}/simob-${OS}-${ARCH}"
-  echo "[*] Downloading binary from $BINARY_URL to $DOWNLOAD_FILE..."
-  curl -# -L -o "$DOWNLOAD_FILE" "$BINARY_URL"
-  export BINARY_PATH="$DOWNLOAD_FILE"
-  echo "Binary downloaded to: $BINARY_PATH"
-else
-  # If BINARY_PATH is set, run the install process with an existing binary (either downloaded
-  # or built from source)
-  echo "[*] Using existing binary at: $BINARY_PATH"
-fi
+# Fetch binary
+fetch_binary
 
 # Create a system user without login access or home directory
 # This user will be used to run the simob agent securely via systemd
@@ -139,6 +200,9 @@ echo "[+] Creating custom user and shared group..."
 id $CUSTOM_USER &>/dev/null || useradd --system --no-create-home --shell /usr/sbin/nologin $CUSTOM_USER
 groupadd --force "$CUSTOM_GROUP"
 
+# Capture the invoking user with the SUDO_USER environment variable.
+# $(whoami) is a fallback and ensures it still works if the script is somehow run directly as root
+REAL_USER=${SUDO_USER:-$(whoami)}
 # Add user to the custom simob group. This allows you to run simob as non-root because it needs
 # to write to the install path
 echo "[+] Adding $REAL_USER and $CUSTOM_USER to $CUSTOM_GROUP group..."
@@ -170,70 +234,22 @@ chmod +x "$INSTALL_PATH"
 echo "[+] Linking binary to /usr/local/bin/${SERVICE_NAME} ..."
 ln -sf "$INSTALL_PATH" /usr/local/bin/${SERVICE_NAME}
 
-# Create and install the systemd service unit file
-echo "[+] Setting up systemd service..."
-
-# Optional system-wide read capability (default: enabled)
-if [ "${NO_SYSTEM_READ}" = true ]; then
-  SYSTEM_CAPABILITIES=""
-else
-  SYSTEM_CAPABILITIES="
-# Grant read/search access to the filesystem (bypassing some permission checks)
-AmbientCapabilities=CAP_DAC_READ_SEARCH
-CapabilityBoundingSet=CAP_DAC_READ_SEARCH
-"
-fi
-
-cat << EOF > "${SERVICE_FILE_PATH}"
-[Unit]
-Description=${SERVICE_NAME} daemon
-After=network.target
-
-[Service]
-Type=simple
-ExecStart=${INSTALL_PATH} start
-Restart=always
-User=${CUSTOM_USER}
-Group=${CUSTOM_GROUP}
-${SYSTEM_CAPABILITIES}
-# Prevent gaining any further privileges
-NoNewPrivileges=yes
-# Mount /usr, /boot, /etc read-only
-ProtectSystem=full
-# Isolate /home, /root, /run/user
-ProtectHome=yes
-# Private /tmp and /var/tmp
-PrivateTmp=true
-
-[Install]
-WantedBy=multi-user.target
-EOF
-
-# Apply the new systemd configuration and finish installation
-# The if/else statement is meant for systems that are not running systemd
-if pidof systemd > /dev/null; then
-  echo "[+] Reloading systemd ..."
-  systemctl daemon-reload
-else
-  echo "[!] Skipping systemctl setup: not running under systemd."
-fi
-
-echo "[+] Install is done."
-
-echo "[*] Checking simob version..."
-sudo -u $CUSTOM_USER "$INSTALL_PATH" version
-
 echo "[*] Initializing simob with provided API key..."
 sudo -u $CUSTOM_USER "$INSTALL_PATH" init "$API_KEY" "${EXTRA_ARGS[@]}"
 echo "[+] Initialization complete."
 
-echo "[*] Starting simob systemd service..."
-systemctl start simob.service
-echo "[+] simob service started."
+# Apply the new systemd configuration and finish installation
+# The if/else statement is meant for systems that are not running systemd
+if [ "${SKIP_SYSTEMD}" = false ]; then
+  setup_systemd
+fi
 
+echo "[+] Install is done."
 echo ""
+
 echo "[*] Simple Observability (simob) agent has been installed and initialized successfully."
 echo ""
+
 echo "[*] You can now manage the service with systemctl, for example:"
 echo "    systemctl start $SERVICE_NAME"
 echo "    systemctl status $SERVICE_NAME"
