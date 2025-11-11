@@ -8,9 +8,9 @@ set -e
 SERVICE_NAME="simob"
 CUSTOM_USER="simob-agent"
 CUSTOM_GROUP="simob-admins"
-INSTALL_DIR="/opt/simob"
-INSTALL_PATH="$INSTALL_DIR"/"$SERVICE_NAME"
 SERVICE_FILE_PATH="/etc/systemd/system/${SERVICE_NAME}.service"
+USER_SERVICE_DIR="$HOME/.config/systemd/user"
+USER_SERVICE_FILE_PATH="${USER_SERVICE_DIR}/${SERVICE_NAME}.service"
 
 # Checks if the 'curl' command-line tool is installed and available in the PATH.
 check_dependencies() {
@@ -73,7 +73,8 @@ fetch_binary() {
   fi
 }
 
-setup_systemd() {
+# Set up a systemd service
+setup_systemd_service() {
   # Create and install the systemd service unit file
   echo "[+] Setting up systemd service..."
 
@@ -113,12 +114,38 @@ PrivateTmp=true
 WantedBy=multi-user.target
 EOF
 
-  echo "[+] Reloading systemd ..."
+  echo "[+] Reloading systemd daemon ..."
   systemctl daemon-reload
 
-  echo "[*] Starting simob systemd service..."
-  systemctl start simob.service
-  echo "[+] simob service started."
+  echo "[*] Starting systemd service..."
+  systemctl enable "${SERVICE_NAME}.service"
+  systemctl start "${SERVICE_NAME}.service"
+  echo "[+] Service started and enabled."
+}
+
+# Create a dedicated user to run simob as a systemd service.
+create_custom_user() {
+  # Create a system user without login access or home directory
+  # This user will be used to run the simob agent securely via systemd
+  echo "[+] Creating custom user and shared group..."
+  id $CUSTOM_USER &>/dev/null || useradd --system --no-create-home --shell /usr/sbin/nologin $CUSTOM_USER
+  groupadd --force "$CUSTOM_GROUP"
+
+  # Capture the invoking user with the SUDO_USER environment variable.
+  # $(whoami) is a fallback and ensures it still works if the script is somehow run directly as root
+  REAL_USER=${SUDO_USER:-$(whoami)}
+
+  # Add user to the custom simob group. This allows you to run simob as non-root because it needs
+  # to write to the install path
+  echo "[+] Adding $REAL_USER and $CUSTOM_USER to $CUSTOM_GROUP group..."
+  usermod -aG "$CUSTOM_GROUP" "$REAL_USER"
+  usermod -aG "$CUSTOM_GROUP" "$CUSTOM_USER"
+
+  # Set appropriate permissions
+  chown -R "$CUSTOM_USER":"$CUSTOM_GROUP" "$INSTALL_DIR"
+  chmod -R 770 "$INSTALL_DIR"
+  chmod g+s "$INSTALL_DIR"
+  chown "$CUSTOM_USER":"$CUSTOM_GROUP" "$INSTALL_PATH"
 }
 
 # -------------------- Parse options --------------------
@@ -185,80 +212,92 @@ else
   SKIP_SYSTEMD=true
 fi
 
-# Ensure this install script is run as root.
-if [[ "$EUID" -ne 0 ]]; then
-  echo "[x] This installer needs to be run as root. Use sudo."
-  exit 1
+# Check if install is running as sudo
+if [[ "$EUID" -eq 0 ]]; then
+  echo "[*] Running install in sudo mode."
+  IS_SUDO_MODE="true"
+  INSTALL_DIR="/opt/simob"
+  LINK_DIR="/usr/local/bin"
+else
+  echo "[*] Running install in non-sudo mode."
+  IS_SUDO_MODE="false"
+  INSTALL_DIR="$HOME/.local/simob"
+  LINK_DIR="$HOME/.local/bin"
 fi
 
 # Fetch binary
 fetch_binary
 
-# Create a system user without login access or home directory
-# This user will be used to run the simob agent securely via systemd
-echo "[+] Creating custom user and shared group..."
-id $CUSTOM_USER &>/dev/null || useradd --system --no-create-home --shell /usr/sbin/nologin $CUSTOM_USER
-groupadd --force "$CUSTOM_GROUP"
-
-# Capture the invoking user with the SUDO_USER environment variable.
-# $(whoami) is a fallback and ensures it still works if the script is somehow run directly as root
-REAL_USER=${SUDO_USER:-$(whoami)}
-# Add user to the custom simob group. This allows you to run simob as non-root because it needs
-# to write to the install path
-echo "[+] Adding $REAL_USER and $CUSTOM_USER to $CUSTOM_GROUP group..."
-usermod -aG "$CUSTOM_GROUP" "$REAL_USER"
-usermod -aG "$CUSTOM_GROUP" "$CUSTOM_USER"
-
-# Conditionally add the simob user to the "systemd-journal" group
-if [[ "$NO_JOURNAL_ACCESS" == false ]]; then
-  echo "[+] Granting journal access to $CUSTOM_USER..."
-  usermod -aG systemd-journal "$CUSTOM_USER"
-else
-  echo "[*] Skipping journal access for $CUSTOM_USER (--no-journal-access flag set)"
-fi
-
-# Create necessary directories and assign ownership
-echo "[+] Creating directories and setting custom permissions ..."
-mkdir -p "$INSTALL_DIR"
-chown -R $CUSTOM_USER:$CUSTOM_GROUP "$INSTALL_DIR"
-chmod -R 770 "$INSTALL_DIR"
-chmod g+s "$INSTALL_DIR"
-
 # Install the binary
-echo "[+] Installing binary in $INSTALL_PATH ..."
+echo "[+] Installing binary in $INSTALL_DIR ..."
+mkdir -p "$INSTALL_DIR" "$LINK_DIR"
+INSTALL_PATH="$INSTALL_DIR"/"$SERVICE_NAME"
 cp "$BINARY_PATH" "$INSTALL_PATH"
-chown $CUSTOM_USER:$CUSTOM_GROUP "$INSTALL_PATH"
+ln -sf "$INSTALL_DIR/$SERVICE_NAME" "$LINK_DIR/$SERVICE_NAME"
 chmod +x "$INSTALL_PATH"
 
-# Make the binary globally accessible
-echo "[+] Linking binary to /usr/local/bin/${SERVICE_NAME} ..."
-ln -sf "$INSTALL_PATH" /usr/local/bin/${SERVICE_NAME}
+if [[ "$IS_SUDO_MODE" == "true" ]]; then
+  create_custom_user
+
+  # Conditionally add the simob user to the "systemd-journal" group
+  if [[ "$NO_JOURNAL_ACCESS" == false ]]; then
+    echo "[+] Granting journal access to $CUSTOM_USER..."
+    usermod -aG systemd-journal "$CUSTOM_USER"
+  else
+    echo "[*] Skipping journal access for $CUSTOM_USER (--no-journal-access flag set)"
+  fi
+
+fi
 
 echo "[*] Initializing simob with provided API key..."
-sudo -u $CUSTOM_USER "$INSTALL_PATH" init "$API_KEY" "${EXTRA_ARGS[@]}"
+if [[ "$IS_SUDO_MODE" == "true" ]]; then
+  sudo -u "$CUSTOM_USER" "$INSTALL_PATH" init "$API_KEY" "${EXTRA_ARGS[@]}"
+else
+  $INSTALL_PATH init "$API_KEY" "${EXTRA_ARGS[@]}"
+fi
 echo "[+] Initialization complete."
 
 # Apply the new systemd configuration and finish installation
-# The if/else statement is meant for systems that are not running systemd
 if [ "${SKIP_SYSTEMD}" = false ]; then
-  setup_systemd
+  if [[ "$IS_SUDO_MODE" == "true" ]]; then
+    setup_systemd_service
+  fi
+else
+  echo "[!] Skipping service setup as systemd is not running."
 fi
 
-echo "[+] Install is done."
 echo ""
-
 echo "[*] Simple Observability (simob) agent has been installed and initialized successfully."
 echo ""
 
-echo "[*] You can now manage the service with systemctl, for example:"
-echo "    systemctl start $SERVICE_NAME"
-echo "    systemctl status $SERVICE_NAME"
-echo ""
+if [ "${SKIP_SYSTEMD}" = false ]; then
+  if [[ "$IS_SUDO_MODE" == "true" ]]; then
+  echo "[*] The **system-wide service** is running as user '$CUSTOM_USER' and is enabled for startup."
+  echo "[*] You can manage the service using global 'systemctl', for example:"
+  echo "    sudo systemctl status $SERVICE_NAME"
+  echo "    sudo systemctl restart $SERVICE_NAME"
+  echo ""
+  echo "[*] To run 'simob' commands manually, you need to update your group membership:"
+  echo "    Log out and back in, or run 'newgrp $CUSTOM_GROUP' to refresh permissions."
 
-echo "[*] To run the simob manually, first make sure you have updated your group membership:"
-echo "    Log out and back in, or run 'newgrp $CUSTOM_GROUP' to apply group changes."
-echo ""
-echo "    Then you can simply run commands like:"
-echo "      simob help"
-echo "      simob <other-command>"
-echo ""
+  else
+    echo "[*] You chose to install without 'sudo'."
+    echo "    The agent has been initialized successfully, but no system service was created automatically."
+    echo ""
+    echo "[*] To run the agent manually, use:"
+    echo "    simob start"
+    echo ""
+  fi
+else
+  echo "[!] Service management (systemd) was skipped as it was not detected on this system."
+  echo ""
+  if [[ "$IS_SUDO_MODE" == "true" ]]; then
+    echo "[*] The agent was installed to '$INSTALL_PATH' and requires a group refresh for manual use."
+    echo "    Log out and back in, or run 'newgrp $CUSTOM_GROUP' to apply group changes."
+    echo "    Then you can run the agent manually: 'simob start'"
+  else
+    echo "[*] The agent was installed to '$INSTALL_PATH' and symlinked to '$LINK_DIR'."
+    echo "    Ensure '$LINK_DIR' is in your \$PATH."
+  fi
+  echo ""
+fi
