@@ -172,11 +172,11 @@ func (c *JournalCTLCollector) processJournalEntry(entry *sdjournal.JournalEntry)
 	priorityStr := entry.Fields[sdjournal.SD_JOURNAL_FIELD_PRIORITY]
 	priorityInt, err := strconv.Atoi(priorityStr)
 	if err != nil {
-		logger.Log.Error("can't process priority. using fallback value", "value", priorityStr, "error", err)
+		logger.Log.Debug("can't process priority. using fallback value", "value", priorityStr, "error", err)
 		priorityInt = 6
 	}
 	if priorityInt < 0 || priorityInt > 7 {
-		logger.Log.Error("parsed priority out of bounds. using fallback value", "value", priorityInt, "error", err)
+		logger.Log.Debug("parsed priority out of bounds. using fallback value", "value", priorityInt, "error", err)
 		priorityInt = 6
 	}
 	severity := severityMap[priorityInt]
