@@ -282,37 +282,37 @@ else
 fi
 
 echo ""
+echo ""
 echo "[*] Simple Observability (simob) agent has been installed and initialized successfully."
 echo ""
-
-if [ "${SKIP_SYSTEMD}" = false ]; then
-  if [[ "$IS_SUDO_MODE" == "true" ]]; then
-  echo "[*] The **system-wide service** is running as user '$CUSTOM_USER' and is enabled for startup."
-  echo "[*] You can manage the service using global 'systemctl', for example:"
-  echo "    sudo systemctl status $SERVICE_NAME"
-  echo "    sudo systemctl restart $SERVICE_NAME"
-  echo ""
-  echo "[*] To run 'simob' commands manually, you need to update your group membership:"
-  echo "    Log out and back in, or run 'newgrp $CUSTOM_GROUP' to refresh permissions."
-
+if [[ "$IS_SUDO_MODE" == "true" ]]; then
+  if [ "${SKIP_SYSTEMD}" = false ]; then
+    echo "[*] The system-wide service is running as user '$CUSTOM_USER' and is enabled for startup."
+    echo ""
+    echo "[*] Service management:"
+    echo "    You can manage the agent using global 'systemctl':"
+    echo "      sudo systemctl status $SERVICE_NAME"
+    echo "      sudo systemctl restart $SERVICE_NAME"
   else
-    echo "[*] You chose to install without 'sudo'."
-    echo "    The agent has been initialized successfully, but no system service was created automatically."
-    echo ""
-    echo "[*] To run the agent manually, use:"
-    echo "    simob start"
-    echo ""
+    echo "[!] System service skipped:"
+    echo "    The systemd service was skipped because systemd is not available on your system."
+    echo "    You must handle service management manually."
   fi
+  echo ""
+  echo "[*] Agent location: The agent was installed in '$INSTALL_PATH' and symlinked to '$LINK_DIR'."
+  echo "[*] CLI access & manual use:"
+  echo "    To run 'simob' commands (like 'simob start') manually, you need to refresh your group membership:"
+  echo "    1. Log out and back in, OR"
+  echo "    2. Run 'newgrp $CUSTOM_GROUP' in your current session."
 else
-  echo "[!] Service management (systemd) was skipped as it was not detected on this system."
+  echo "[!] You chose to install without 'sudo', so no system service was created automatically."
   echo ""
-  if [[ "$IS_SUDO_MODE" == "true" ]]; then
-    echo "[*] The agent was installed to '$INSTALL_PATH' and requires a group refresh for manual use."
-    echo "    Log out and back in, or run 'newgrp $CUSTOM_GROUP' to apply group changes."
-    echo "    Then you can run the agent manually: 'simob start'"
-  else
-    echo "[*] The agent was installed to '$INSTALL_PATH' and symlinked to '$LINK_DIR'."
-    echo "    Ensure '$LINK_DIR' is in your \$PATH."
-  fi
+  echo "[*] Agent location: The agent was installed to '$INSTALL_PATH' and symlinked to '$LINK_DIR'."
+  echo "    Ensure '$LINK_DIR' is included in your \$PATH environment variable."
   echo ""
+  echo "[*] For system service: If you wish to run the agent as a system service (recommended for production):"
+  echo "    You must manually configure and install a systemd unit or equivalent service file."
+  echo "    Consult the official documentation for service configuration examples."
 fi
+echo ""
+echo ""
