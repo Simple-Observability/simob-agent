@@ -9,15 +9,30 @@ SERVICE_NAME="simob"
 CUSTOM_USER="simob-agent"
 CUSTOM_GROUP="simob-admins"
 SERVICE_FILE_PATH="/etc/systemd/system/${SERVICE_NAME}.service"
-USER_SERVICE_DIR="$HOME/.config/systemd/user"
-USER_SERVICE_FILE_PATH="${USER_SERVICE_DIR}/${SERVICE_NAME}.service"
+
+# Sends a minimal exit reason payload to a telemetry endpoint before exiting the current script
+exit_with_telemetry() {
+  if [[ "$SKIP_TELEMETRY" == "1" ]]; then
+    exit 1
+  fi
+
+  local exit_reason="$1"
+  local TELEMETRY_ENDPOINT="https://api.simpleobservability.com/telemetry/install"
+  if [[ -z "$exit_reason" ]]; then
+    exit_reason="Unspecified reason"
+  fi
+  local PAYLOAD
+  PAYLOAD=$(printf '{"reason": "%s"}' "${exit_reason}")
+  curl -s -m 5 -X POST -H "Content-Type: application/json" --data "$PAYLOAD" "$TELEMETRY_ENDPOINT"
+  exit 1
+}
 
 # Checks if the 'curl' command-line tool is installed and available in the PATH.
 check_dependencies() {
   if ! command -v curl &> /dev/null; then
     echo "[x] Error: The 'curl' command is not installed."
-    echo "    Please install curl (e.g., 'sudo apt install curl') and try again."
-    exit 1
+    echo "    Please install curl (e.g., using 'apt', 'yum', or 'brew') and try again."
+    exit_with_telemetry "'curl' command not installed"
   fi
 }
 
@@ -37,7 +52,7 @@ check_key_validity() {
     echo "[+] API key is valid."
   else
     echo "[x] Error: API key check failed. Received HTTP $HTTP_CODE."
-    exit 1
+    exit_with_telemetry "API key is not valid"
   fi
 }
 
@@ -56,7 +71,7 @@ fetch_binary() {
         ;;
       *)
         echo "[x] Unsupported architecture: $ARCH" >&2
-        return 1
+        exit_with_telemetry "'$ARCH' is not a supported architecture"
         ;;
     esac
     BINARY_URL="https://github.com/Simple-Observability/simob-agent/releases/latest/download/simob-${OS}-${ARCH}"
@@ -182,7 +197,7 @@ for arg in "$@"; do
       else
         echo "[x] Unexpected extra argument: $arg"
         echo "Usage: sudo install.sh <API_KEY> [--no-system-read] [--no-journal-access]"
-        exit 1
+        exit_with_telemetry "Unexpected extra arguments"
       fi
       ;;
   esac
@@ -192,7 +207,7 @@ done
 if [[ -z "$API_KEY" ]]; then
   echo "[x] Missing API key"
   echo "Usage: sudo install.sh <API_KEY> [--no-system-read] [--no-journal-access]"
-  exit 1
+  exit_with_telemetry "API key is missing"
 fi
 # -------------------------------------------------------
 
