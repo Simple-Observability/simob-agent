@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"agent/internal/collection"
+	"agent/internal/logger"
 	"agent/internal/metrics"
 )
 
@@ -99,7 +100,8 @@ func (c *NginxCollector) Collect() ([]metrics.DataPoint, error) {
 func (c *NginxCollector) CollectAll() ([]metrics.DataPoint, error) {
 	stats, err := getStatsFromStatusPage(c.url)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get stats from nginx status page: %w", err)
+		logger.Log.Debug("Failed to collect metrics", "collector", c.Name, "error", err)
+		return nil, nil
 	}
 
 	var results []metrics.DataPoint

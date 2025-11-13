@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"strconv"
 	"sync"
+	"time"
 
 	"github.com/coreos/go-systemd/sdjournal"
 
@@ -115,7 +116,7 @@ func (c *JournalCTLCollector) readJournal(ctx context.Context, out chan<- logs.L
 		case <-ctx.Done():
 			return
 		default:
-			r := c.journal.Wait(sdjournal.IndefiniteWait)
+			r := c.journal.Wait(1 * time.Second)
 			if r == sdjournal.SD_JOURNAL_APPEND {
 				// TODO Isn't it better to return the result here and do the rest instead of embedding the logic deep into the call stack?
 				if err := c.processNewEntries(out); err != nil {
@@ -171,11 +172,11 @@ func (c *JournalCTLCollector) processJournalEntry(entry *sdjournal.JournalEntry)
 	priorityStr := entry.Fields[sdjournal.SD_JOURNAL_FIELD_PRIORITY]
 	priorityInt, err := strconv.Atoi(priorityStr)
 	if err != nil {
-		logger.Log.Error("can't process priority. using fallback value", "value", priorityStr, "error", err)
+		logger.Log.Debug("can't process priority. using fallback value", "value", priorityStr, "error", err)
 		priorityInt = 6
 	}
 	if priorityInt < 0 || priorityInt > 7 {
-		logger.Log.Error("parsed priority out of bounds. using fallback value", "value", priorityInt, "error", err)
+		logger.Log.Debug("parsed priority out of bounds. using fallback value", "value", priorityInt, "error", err)
 		priorityInt = 6
 	}
 	severity := severityMap[priorityInt]
