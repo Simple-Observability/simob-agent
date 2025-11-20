@@ -7,7 +7,6 @@ import (
 
 	"agent/internal/api"
 	"agent/internal/collection"
-	"agent/internal/common"
 	"agent/internal/logger"
 )
 
@@ -15,12 +14,14 @@ import (
 type ConfigWatcher struct {
 	client      *api.Client
 	initialHash string
+	reloadCh    chan<- bool
 }
 
 // NewConfigWatcher creates a new instance of the ConfigWatcher.
-func NewConfigWatcher(client *api.Client) *ConfigWatcher {
+func NewConfigWatcher(client *api.Client, reloadCh chan<- bool) *ConfigWatcher {
 	return &ConfigWatcher{
-		client: client,
+		client:   client,
+		reloadCh: reloadCh,
 	}
 }
 
@@ -54,13 +55,7 @@ func (r *ConfigWatcher) run(ctx context.Context, initialCfg *collection.Collecti
 			return
 
 		case <-ticker.C:
-			newCfg, shouldRestart := r.checkConfigForChange()
-			// checkConfigForChange will called os.Exit(1) if hash changed.
-			if shouldRestart {
-				return
-			}
-
-			// Determine the next desired tick duration.
+			newCfg := r.checkConfigForChange()
 			if newCfg != nil {
 				nextTickDuration := determineTickDuration(newCfg)
 				// Check if the duration needs to change
@@ -93,27 +88,26 @@ func determineTickDuration(cfg *collection.CollectionConfig) time.Duration {
 	return slow
 }
 
-// checkConfigForChange fetches the new config, compares the hash, and triggers os.Exit(1) on change.
-// Returns the fetched config and a boolean indicating if an exit was triggered.
-func (r *ConfigWatcher) checkConfigForChange() (*collection.CollectionConfig, bool) {
+// checkConfigForChange fetches the new config, compares the hash, and triggers a reload on change.
+// Returns the fetched config.
+func (r *ConfigWatcher) checkConfigForChange() *collection.CollectionConfig {
 	newCfg, err := r.client.GetCollectionConfig()
 	if err != nil {
 		logger.Log.Warn("Failed to fetch config for change detection", "error", err)
-		return nil, false
+		return nil
 	}
 
 	// Hash check
 	newHash, err := newCfg.Hash()
 	if err != nil {
 		logger.Log.Warn("Failed to hash new config. Skipping this check cycle", "error", err)
-		return nil, false
+		return newCfg
 	}
 
 	if newHash != r.initialHash {
-		logger.Log.Info("Configuration has changed. Exiting for auto-restart.")
-		common.ReleaseLock()
-		os.Exit(1)
-		return newCfg, true
+		logger.Log.Info("Configuration has changed. Triggering reload.")
+		r.reloadCh <- true
+		return newCfg
 	}
-	return newCfg, false
+	return newCfg
 }
