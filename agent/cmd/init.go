@@ -3,7 +3,7 @@ package cmd
 import (
 	"github.com/spf13/cobra"
 
-	"agent/internal/lifecycle"
+	"agent/internal/initializer"
 )
 
 var dryRun bool
@@ -17,7 +17,7 @@ var initCmd = &cobra.Command{
 		if len(args) > 0 {
 			apiKey = args[0]
 		}
-		lifecycle.RunInit(apiKey, dryRun)
+		initializer.Run(apiKey, dryRun)
 	},
 }
 

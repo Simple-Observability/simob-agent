@@ -1,4 +1,4 @@
-package lifecycle
+package initializer
 
 import (
 	"log/slog"
@@ -14,7 +14,7 @@ import (
 	metricsRegistry "agent/internal/metrics/registry"
 )
 
-func RunInit(apiKey string, dryRun bool) {
+func Run(apiKey string, dryRun bool) {
 	// Initialize logger
 	debug := os.Getenv("DEBUG") == "1"
 	logger.Init(debug)
