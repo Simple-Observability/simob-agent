@@ -64,36 +64,32 @@ func StartCollection(
 	}
 
 	// Processing loop (parse + export)
+	var processingWg sync.WaitGroup
+	processingWg.Add(1)
 	go func() {
-		for {
-			select {
-			case <-ctx.Done():
-				close(logsChan)
-				return
-
-			case logEntry, ok := <-logsChan:
-				if !ok {
-					// triggers when channel is closed
-					return
-				}
-				logger.Log.Debug("Logs collected", "source", logEntry.Source)
-				logPayload := convertLogEntryToPayload(logEntry)
-				logPayloadList := []exporter.LogPayload{logPayload}
-				err := exp.ExportLog(logPayloadList)
-				if err != nil {
-					logger.Log.Error("failed to export logs payload", "error", err)
-				}
+		defer processingWg.Done()
+		for logEntry := range logsChan {
+			logger.Log.Debug("Logs collected", "source", logEntry.Source)
+			logPayload := convertLogEntryToPayload(logEntry)
+			logPayloadList := []exporter.LogPayload{logPayload}
+			err := exp.ExportLog(logPayloadList)
+			if err != nil {
+				logger.Log.Error("failed to export logs payload", "error", err)
 			}
 		}
 	}()
 
-	// Stop for exit signal to stop all collectors
+	// Stop all collectors
 	<-ctx.Done()
 	logger.Log.Info("Logs collection received stop signal.")
-	exp.Close()
 	for _, c := range collectors {
-		c.Stop()
+		if err := c.Stop(); err != nil {
+			logger.Log.Warn("failed to stop log collector", "name", c.Name(), "error", err)
+		}
 	}
+	close(logsChan)
+	processingWg.Wait()
+	exp.Close()
 }
 
 func DiscoverAvailableLogSources(collectors []LogCollector) []collection.LogSource {
