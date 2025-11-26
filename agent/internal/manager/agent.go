@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"agent/internal/api"
+	"agent/internal/authguard"
 	"agent/internal/collection"
 	"agent/internal/common"
 	"agent/internal/config"
@@ -20,25 +21,73 @@ import (
 	metricsRegistry "agent/internal/metrics/registry"
 )
 
+type ControlEvent int
+
+const (
+	Shutdown ControlEvent = iota
+	Reload
+	Restart
+	Hibernate
+)
+
 type Agent struct {
-	config   *config.Config
-	client   *api.Client
-	reloadCh chan bool
-	wg       *sync.WaitGroup
+	config    *config.Config
+	client    *api.Client
+	reloadCh  chan bool
+	restartCh chan bool
+	wg        *sync.WaitGroup
 }
 
 func NewAgent(cfg *config.Config) *Agent {
 	return &Agent{
-		config:   cfg,
-		client:   api.NewClient(*cfg),
-		reloadCh: make(chan bool, 1),
-		wg:       &sync.WaitGroup{},
+		config:    cfg,
+		client:    api.NewClient(*cfg),
+		reloadCh:  make(chan bool, 1),
+		restartCh: make(chan bool, 1),
+		wg:        &sync.WaitGroup{},
 	}
 }
 
 func (a *Agent) Run(dryRun bool) {
-	signalChan := make(chan os.Signal, 1)
-	signal.Notify(signalChan, syscall.SIGINT, syscall.SIGTERM)
+	ctrl := make(chan ControlEvent, 1)
+
+	// OS signals -> Shutdown event
+	go func() {
+		s := make(chan os.Signal, 1)
+		signal.Notify(s, syscall.SIGINT, syscall.SIGTERM)
+		<-s
+		ctrl <- Shutdown
+	}()
+
+	// Collection config change -> Reload event
+	go func() {
+		<-a.reloadCh
+		ctrl <- Reload
+	}()
+
+	// Restart signal -> Restart event
+	go func() {
+		<-a.restartCh
+		ctrl <- Restart
+	}()
+
+	// Key check -> Hibernate event
+	keyCheckCh := make(chan bool, 1)
+	authguard.Get().Subscribe(keyCheckCh)
+	go func() {
+		<-keyCheckCh
+		valid, _ := a.client.CheckAPIKeyValidity()
+		if !valid {
+			ctrl <- Hibernate
+		}
+	}()
+
+	// Initial key validation
+	valid, err := a.client.CheckAPIKeyValidity()
+	if !valid || err != nil {
+		logger.Log.Error("failed to check API key validity", "error", err)
+		os.Exit(1)
+	}
 
 	for {
 		// Create a context to signal when exit
@@ -53,17 +102,35 @@ func (a *Agent) Run(dryRun bool) {
 
 		a.startServices(ctx, dryRun)
 
-		// Wait for custom restart signal
-		restartCh := common.RestartSignal(ctx.Done())
-
 		select {
-		case sig := <-signalChan:
-			logger.Log.Info("Termination signal received.", "signal", sig)
-			cancel()
-			a.wg.Wait()
-			common.ReleaseLock()
-			logger.Log.Info("Collectors stopped. Exiting.")
-			return
+		case evt := <-ctrl:
+			switch evt {
+			case Shutdown:
+				cancel()
+				a.wg.Wait()
+				common.ReleaseLock()
+				logger.Log.Info("Collectors stopped. Exiting.")
+				return
+			case Restart:
+				cancel()
+				a.wg.Wait()
+				common.ReleaseLock()
+				logger.Log.Info("Agent stopped for restart. Automatic restart will only happen if running under systemd.")
+				os.Exit(1)
+			case Reload:
+				cancel()
+				a.wg.Wait()
+				logger.Log.Info("Reloading collectors")
+				continue
+			case Hibernate:
+				cancel()
+				a.wg.Wait()
+				logger.Log.Warn("Hibernating for 1h")
+				// FIXME: this will block everything
+				time.Sleep(1 * time.Hour)
+				logger.Log.Info("Hibernation finished. Restarting collectors.")
+				continue
+			}
 		case <-ctx.Done():
 			if dryRun {
 				cancel()
@@ -72,18 +139,6 @@ func (a *Agent) Run(dryRun bool) {
 				logger.Log.Info("Dry run finished. Exiting agent.")
 				return
 			}
-		case <-restartCh:
-			logger.Log.Info("Restart requested. Shutting down gracefully for updater.")
-			cancel()
-			a.wg.Wait()
-			common.ReleaseLock()
-			logger.Log.Info("Agent stopped for restart. Automatic restart will only happen if running under systemd.")
-			os.Exit(1)
-		case <-a.reloadCh:
-			logger.Log.Info("Configuration change detected. Reloading collectors.")
-			cancel()
-			a.wg.Wait()
-			logger.Log.Info("Collectors stopped. Restarting with new configuration.")
 		}
 	}
 }
@@ -99,10 +154,15 @@ func (a *Agent) startServices(ctx context.Context, dryRun bool) {
 		}
 	}
 
+	// Start config watcher
 	if !dryRun && clcCfg != nil {
-		configReloader := NewConfigWatcher(a.client, a.reloadCh)
-		configReloader.Start(ctx, clcCfg)
+		configWatcher := NewConfigWatcher(a.client, a.reloadCh)
+		configWatcher.Start(ctx, clcCfg)
 	}
+
+	// Start restart watcher
+	restartWatcher := NewRestartWatcher(a.restartCh)
+	restartWatcher.Start(ctx)
 
 	exporter, err := exporter.NewExporter(dryRun)
 	if err != nil {

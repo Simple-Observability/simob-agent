@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"agent/internal/authguard"
 	"agent/internal/common"
 	"agent/internal/config"
 	"agent/internal/logger"
@@ -391,6 +392,10 @@ func (e *Exporter) sendPayload(url string, payload []Payload) error {
 		return fmt.Errorf("failed to send data to %s: %w", url, err)
 	}
 	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
+		authguard.Get().HandleUnauthorized()
+	}
 
 	if resp.StatusCode != http.StatusNoContent {
 		return fmt.Errorf("data export to %s failed with status code: %d", url, resp.StatusCode)

@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"time"
 
+	"agent/internal/authguard"
 	"agent/internal/collection"
 	"agent/internal/config"
 	"agent/internal/hostinfo"
@@ -28,6 +29,13 @@ func NewClient(cfg config.Config) *Client {
 			Timeout: 10 * time.Second,
 		},
 	}
+}
+
+// CheckAPIKeyValidity checks if the API key is still valid.
+// This is a mock function that always returns true for now.
+func (c *Client) CheckAPIKeyValidity() (bool, error) {
+	// FIXME: Implement the actual API key check.
+	return true, nil
 }
 
 func (c *Client) GetCollectionConfig() (*collection.CollectionConfig, error) {
@@ -105,6 +113,10 @@ func (c *Client) get(path string) (*http.Response, error) {
 		return nil, fmt.Errorf("request failed: %w", err)
 	}
 
+	if res.StatusCode == http.StatusUnauthorized || res.StatusCode == http.StatusForbidden {
+		authguard.Get().HandleUnauthorized()
+	}
+
 	if res.StatusCode < 200 || res.StatusCode >= 300 {
 		var buf [512]byte
 		n, _ := res.Body.Read(buf[:])
@@ -137,6 +149,10 @@ func (c *Client) post(path string, payload interface{}) (*http.Response, error) 
 	res, err := c.client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("request failed: %w", err)
+	}
+
+	if res.StatusCode == http.StatusUnauthorized || res.StatusCode == http.StatusForbidden {
+		authguard.Get().HandleUnauthorized()
 	}
 
 	if res.StatusCode < 200 || res.StatusCode >= 300 {

@@ -1,14 +1,16 @@
-package common
+package manager
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"time"
 
+	"agent/internal/common"
 	"agent/internal/logger"
 )
 
-// RestartSignal returns a channel that notifies when the agent should restart.
+// RestartWatcher manages the background process of checking for a restart signal file.
 //
 // This is a file-based signaling mechanism used instead of relying on OS signals
 // (SIGINT/SIGTERM) because signals can only be sent by the process owner or root.
@@ -17,33 +19,49 @@ import (
 //
 // On agent startup, any stale restart file is deleted to avoid accidental triggers.
 // The returned channel will emit 'true' when a new restart signal is detected.
-func RestartSignal(stop <-chan struct{}) <-chan bool {
-	deleteRestartSignalIfExists()
-	out := make(chan bool, 1)
-	go func() {
-		ticker := time.NewTicker(5 * time.Second)
-		defer ticker.Stop()
-		defer close(out)
+type RestartWatcher struct {
+	restartCh chan<- bool
+}
 
-		for {
-			select {
-			case <-stop:
+// NewRestartWatcher creates a new instance of the RestartWatcher.
+func NewRestartWatcher(restartCh chan<- bool) *RestartWatcher {
+	return &RestartWatcher{
+		restartCh: restartCh,
+	}
+}
+
+// Start launches the background goroutine to watch for the restart signal file.
+func (r *RestartWatcher) Start(ctx context.Context) {
+	deleteRestartSignalIfExists()
+	go r.run(ctx)
+}
+
+// run is the main loop for checking the restart signal.
+func (r *RestartWatcher) run(ctx context.Context) {
+	ticker := time.NewTicker(5 * time.Second)
+	defer ticker.Stop()
+
+	logger.Log.Info("Running restart watcher.")
+
+	for {
+		select {
+		case <-ctx.Done():
+			logger.Log.Info("Restart watcher received shutdown signal. Exiting.")
+			return
+		case <-ticker.C:
+			logger.Log.Debug("Checking for restart signal")
+			if restartRequested() {
+				logger.Log.Info("Restart signal detected. Triggering restart.")
+				r.restartCh <- true
 				return
-			case <-ticker.C:
-				logger.Log.Debug("Checking for restart signal")
-				if restartRequested() {
-					out <- true
-					return
-				}
 			}
 		}
-	}()
-	return out
+	}
 }
 
 // restartRequested checks if a restart has been requested.
 func restartRequested() bool {
-	programDir, err := GetProgramDirectory()
+	programDir, err := common.GetProgramDirectory()
 	if err != nil {
 		return false
 	}
@@ -58,7 +76,7 @@ func restartRequested() bool {
 
 // deleteRestartSignalIfExists removes the restart file if it exists, ignoring any errors.
 func deleteRestartSignalIfExists() {
-	programDir, err := GetProgramDirectory()
+	programDir, err := common.GetProgramDirectory()
 	if err != nil {
 		return
 	}
