@@ -331,7 +331,7 @@ func (e *Exporter) flushOnce(spoolFile string, url string, unmarshal func([]byte
 		}
 		// Skip stale (old) entries
 		if t, err := strconv.ParseInt(obj.GetTimestamp(), 10, 64); err == nil && t < cutoff {
-			logger.Log.Warn("skipping stale entry", "timestamp", obj.GetTimestamp())
+			logger.Log.Debug("skipping stale entry", "timestamp", obj.GetTimestamp())
 			continue
 		}
 		toSend = append(toSend, obj)

@@ -32,9 +32,11 @@ func NewClient(cfg config.Config) *Client {
 }
 
 // CheckAPIKeyValidity checks if the API key is still valid.
-// This is a mock function that always returns true for now.
 func (c *Client) CheckAPIKeyValidity() (bool, error) {
-	// FIXME: Implement the actual API key check.
+	_, err := c.post("/check-key/", struct{}{})
+	if err != nil {
+		return false, err
+	}
 	return true, nil
 }
 

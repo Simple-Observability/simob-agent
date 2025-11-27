@@ -125,10 +125,9 @@ func (a *Agent) Run(dryRun bool) {
 			case Hibernate:
 				cancel()
 				a.wg.Wait()
-				logger.Log.Warn("Hibernating for 1h")
-				// FIXME: this will block everything
-				time.Sleep(1 * time.Hour)
-				logger.Log.Info("Hibernation finished. Restarting collectors.")
+				if a.hibernate(ctrl) {
+					return
+				}
 				continue
 			}
 		case <-ctx.Done():
@@ -183,4 +182,30 @@ func (a *Agent) startServices(ctx context.Context, dryRun bool) {
 	logger.Log.Info("Starting metric collectors", "count", len(metricsCollectors))
 	a.wg.Add(1)
 	go metrics.StartCollection(metricsCollectors, collectionInterval, ctx, a.wg, exporter)
+}
+
+func (a *Agent) hibernate(ctrl <-chan ControlEvent) (exit bool) {
+	logger.Log.Warn("Hibernating for 1h")
+	timer := time.NewTimer(1 * time.Hour)
+
+	for {
+		select {
+		case <-timer.C:
+			logger.Log.Info("Hibernation finished.")
+			return false
+		case evt := <-ctrl:
+			timer.Stop()
+			switch evt {
+			case Shutdown:
+				logger.Log.Info("Shutdown received during hibernation.")
+				return true
+			case Restart:
+				logger.Log.Info("Restart received during hibernation.")
+				os.Exit(1)
+			case Reload:
+				logger.Log.Info("Reload received during hibernation.")
+				return false
+			}
+		}
+	}
 }
