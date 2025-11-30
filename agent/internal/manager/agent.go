@@ -144,13 +144,11 @@ func (a *Agent) Run(dryRun bool) {
 
 func (a *Agent) startServices(ctx context.Context, dryRun bool) {
 	var clcCfg *collection.CollectionConfig
-	if !dryRun {
-		var err error
-		clcCfg, err = a.client.GetCollectionConfig()
-		if err != nil {
-			logger.Log.Error("exiting due to error when fetching config", "error", err)
-			os.Exit(1)
-		}
+	var err error
+	clcCfg, err = a.client.GetCollectionConfig()
+	if err != nil {
+		logger.Log.Error("exiting due to error when fetching config", "error", err)
+		os.Exit(1)
 	}
 
 	// Start config watcher

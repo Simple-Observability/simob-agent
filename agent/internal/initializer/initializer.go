@@ -46,13 +46,9 @@ func Run(apiKey string, dryRun bool) {
 	if err != nil {
 		logger.Log.Error("Failed to gather info about host. Not critical.", slog.Any("error", err))
 	} else {
-		if dryRun {
-			logger.Log.Info("Skipping sending host info to API due to dry run mode.")
-		} else {
-			err = client.PostHostInfo(*info)
-			if err != nil {
-				logger.Log.Error("Failed to send host info to backend. Not critical.", slog.Any("error", err))
-			}
+		err = client.PostHostInfo(*info)
+		if err != nil {
+			logger.Log.Error("Failed to send host info to backend. Not critical.", slog.Any("error", err))
 		}
 	}
 
@@ -63,9 +59,7 @@ func Run(apiKey string, dryRun bool) {
 	logger.Log.Info("Metrics discovered", slog.Int("count", len(discoveredMetrics)))
 
 	// Send discovered metrics to API
-	if dryRun {
-		logger.Log.Info("Skipping sending discovered metrics to API due to dry run mode.")
-	} else if len(discoveredMetrics) == 0 {
+	if len(discoveredMetrics) == 0 {
 		logger.Log.Info("No metrics found.")
 	} else {
 		err = client.PostAvailableMetrics(discoveredMetrics)
@@ -85,9 +79,7 @@ func Run(apiKey string, dryRun bool) {
 	logger.Log.Info("Log sources discovered", slog.Int("count", len(discoveredLogSources)))
 
 	// Send discovered log sources to API
-	if dryRun {
-		logger.Log.Info("Skipping sending discovered log sources to API due to dry run mode.")
-	} else if len(discoveredLogSources) == 0 {
+	if len(discoveredLogSources) == 0 {
 		logger.Log.Info("No log source found.")
 	} else {
 		err = client.PostAvailableLogSources(discoveredLogSources)
