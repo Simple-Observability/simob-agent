@@ -48,7 +48,7 @@ func (c *Client) CheckAPIKeyValidity() (bool, error) {
 
 func (c *Client) GetCollectionConfig() (*collection.CollectionConfig, error) {
 	if c.dryRun {
-		return &collection.CollectionConfig{}, nil
+		return nil, nil
 	}
 
 	// Add cache buster param with current timestamp (ms)
