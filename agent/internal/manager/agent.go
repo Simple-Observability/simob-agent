@@ -41,7 +41,6 @@ type Agent struct {
 func NewAgent(cfg *config.Config) *Agent {
 	return &Agent{
 		config:    cfg,
-		client:    api.NewClient(*cfg),
 		reloadCh:  make(chan bool, 1),
 		restartCh: make(chan bool, 1),
 		wg:        &sync.WaitGroup{},
@@ -81,6 +80,9 @@ func (a *Agent) Run(dryRun bool) {
 			ctrl <- Hibernate
 		}
 	}()
+
+	// Initialize client
+	a.client = api.NewClient(*a.config, dryRun)
 
 	// Initial key validation
 	valid, err := a.client.CheckAPIKeyValidity()

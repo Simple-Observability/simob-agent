@@ -37,7 +37,7 @@ func Run(apiKey string, dryRun bool) {
 	}
 
 	// Init API client
-	client := api.NewClient(*cfg)
+	client := api.NewClient(*cfg, dryRun)
 	logger.Log.Debug("API client initialized.")
 
 	// Gather host info
