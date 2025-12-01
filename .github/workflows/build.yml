@@ -126,7 +126,7 @@ jobs:
     - name: Run agent (simob config)
       run: sudo -u simob-agent env DEBUG=1 simob config
 
-    - name: Run agent (simob version)
+    - name: Run agent (simob start)
       run: sudo -u simob-agent env DEBUG=1 GOCOVERDIR=/tmp/coverage_data simob start --dry-run
 
     - name: Checkout repository
