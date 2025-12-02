@@ -26,7 +26,7 @@ var statusCmd = &cobra.Command{
 		}
 
 		if isLocked {
-			fmt.Printf("%s[✔]%s simob is running.\n", ColorGreen, ColorReset)
+			fmt.Printf("%s[✓]%s simob is running.\n", ColorGreen, ColorReset)
 		} else {
 			fmt.Printf("%s[✘]%s simob is not running.\n", ColorRed, ColorReset)
 		}
