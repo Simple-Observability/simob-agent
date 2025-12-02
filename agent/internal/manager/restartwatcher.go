@@ -46,7 +46,7 @@ func (r *RestartWatcher) run(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
-			logger.Log.Info("Restart watcher received shutdown signal. Exiting.")
+			logger.Log.Info("Restart watcher received shutdown signal.")
 			return
 		case <-ticker.C:
 			logger.Log.Debug("Checking for restart signal")
