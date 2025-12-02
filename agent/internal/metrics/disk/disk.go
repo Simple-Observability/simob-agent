@@ -30,11 +30,15 @@ func (c *DiskCollector) Name() string {
 }
 
 // normalizeDeviceName strips the common '/dev/' prefix from a device path
+// on Unix-like systems (Linux, macOS, etc.) to align partition device names
+// with I/O counter device names. On Windows, the path is returned unchanged,
+// as the /dev/ prefix is not used in its device paths, ensuring Windows
+// device identifiers remain intact.
 func normalizeDeviceName(devicePath string) string {
-	if runtime.GOOS == "linux" {
-		return strings.TrimPrefix(devicePath, "/dev/")
+	if runtime.GOOS == "windows" {
+		return devicePath
 	}
-	return devicePath
+	return strings.TrimPrefix(devicePath, "/dev/")
 }
 
 // getUniquePrimaryPartitions fetches all partitions, then filters them to ensure:
