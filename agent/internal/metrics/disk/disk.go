@@ -2,6 +2,8 @@ package disk
 
 import (
 	"fmt"
+	"runtime"
+	"slices"
 	"strings"
 	"time"
 
@@ -28,18 +30,11 @@ func (c *DiskCollector) Name() string {
 }
 
 // normalizeDeviceName strips the common '/dev/' prefix from a device path
-// NOTE: Linux only
 func normalizeDeviceName(devicePath string) string {
-	return strings.TrimPrefix(devicePath, "/dev/")
-}
-
-func contains(slice []string, target string) bool {
-	for _, s := range slice {
-		if s == target {
-			return true
-		}
+	if runtime.GOOS == "linux" {
+		return strings.TrimPrefix(devicePath, "/dev/")
 	}
-	return false
+	return devicePath
 }
 
 // getUniquePrimaryPartitions fetches all partitions, then filters them to ensure:
@@ -55,7 +50,7 @@ func getUniquePrimaryPartitions() ([]disk.PartitionStat, error) {
 
 	for _, p := range partitions {
 		// 1. Skip bind mounts
-		if contains(p.Opts, "bind") {
+		if slices.Contains(p.Opts, "bind") {
 			continue
 		}
 
