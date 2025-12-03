@@ -6,6 +6,9 @@ on:
     tags: [ "*" ]
 
 jobs:
+  # ------------------------------------------------------------------
+  # Lint
+  # ------------------------------------------------------------------
   lint:
     name: Lint
     runs-on: ubuntu-latest
@@ -18,16 +21,20 @@ jobs:
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v8
         with:
-          version: v2.5
+          version: v1.60
           working-directory: agent
 
+  # ------------------------------------------------------------------
+  # Build
+  # ------------------------------------------------------------------
   build:
     name: "Build (${{ matrix.os }}/${{ matrix.arch }})"
     strategy:
       matrix:
         include:
-        - { runner: 'ubuntu-24.04', os: linux, arch: amd64 }
+        - { runner: 'ubuntu-24.04', os: 'linux', arch: 'amd64' }
         - { runner: 'ubuntu-24.04-arm', os: 'linux', arch: 'arm64' }
+        - { runner: 'windows-latest', os: 'windows', arch: 'amd64' }
     runs-on: ${{ matrix.runner }}
 
     defaults:
@@ -46,21 +53,29 @@ jobs:
 
     - name: Set Environment Variables
       run: |
-        echo "BINARY_NAME=simob-${{ matrix.os }}-${{ matrix.arch }}" >> $GITHUB_ENV
+        EXT=""
+        if [[ "${{ matrix.os }}" == "windows" ]]; then EXT=".exe"; fi
+
+        echo "BINARY_NAME=simob-${{ matrix.os }}-${{ matrix.arch }}${EXT}" >> $GITHUB_ENV
         echo "VERSION=${{ github.ref_name }}" >> $GITHUB_ENV
         echo "Go version used: $(go version)"
 
-    - name: Install dependencies
+    - name: Install dependencies (Linux)
+      if: runner.os == 'linux'
       run: |
         sudo apt update
         sudo apt install -y libsystemd-dev
-        go mod download
+      working-directory: ./agent
+
+    - name: Download Go Mods
+      run: go mod download
       working-directory: ./agent
 
     - name: Build agent binaries
       run: |
         echo "Building version: ${{ env.VERSION }}"
         echo "Output binary name: ${{ env.BINARY_NAME }}"
+
         # Debug
         echo "Building debug binaries..."
         GOOS=${{ matrix.os }} GOARCH=${{ matrix.arch }} go build \
@@ -69,6 +84,7 @@ jobs:
           -ldflags "-X 'agent/internal/version.Version=${{ env.VERSION }}.debug'" \
           -o ../${{ env.BINARY_NAME }}-debug \
           main.go
+
         # Production
         echo "Building production binaries..."
         GOOS=${{ matrix.os }} GOARCH=${{ matrix.arch }} go build \
@@ -85,10 +101,14 @@ jobs:
           ./${{ env.BINARY_NAME }}
           ./${{ env.BINARY_NAME }}-debug
           install.sh
+          install.ps1
         if-no-files-found: error
 
-  install-and-run:
-    name: Test (${{ matrix.os }}/${{ matrix.arch }})
+  # ------------------------------------------------------------------
+  # Test Linux
+  # ------------------------------------------------------------------
+  test-linux:
+    name: Test Linux (${{ matrix.arch }})
     needs: build
     strategy:
       matrix:
@@ -103,12 +123,8 @@ jobs:
       with:
         name: preview-${{ matrix.os }}-${{ matrix.arch }}
 
-    - name: List downloaded files
-      run: ls -l
-
     - name: Set Environment Variables
-      run: |
-        echo "BINARY_NAME=simob-${{ matrix.os }}-${{ matrix.arch }}" >> $GITHUB_ENV
+      run: echo "BINARY_NAME=simob-${{ matrix.os }}-${{ matrix.arch }}" >> $GITHUB_ENV
 
     - name: Run install script
       run: |
@@ -137,7 +153,6 @@ jobs:
       run: |
         sudo chown -R $USER:$USER /tmp/coverage_data
         cd agent
-
         echo "Generating coverage reports..."
         go tool covdata textfmt -i=/tmp/coverage_data -o coverage.txt
         echo "=========================================="
@@ -154,9 +169,44 @@ jobs:
         echo "=========================================="
         go tool cover -func=coverage.txt | grep total
 
+  # ------------------------------------------------------------------
+  # Test Windows
+  # ------------------------------------------------------------------
+  test-windows:
+    name: Test Windows
+    needs: build
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: powershell
+
+    steps:
+    - name: Download agent artifact
+      uses: actions/download-artifact@v4
+      with:
+        name: preview-windows-amd64
+
+    - name: Run install script
+      run: |
+        $env:BINARY_PATH=".\simob-windows-amd64.exe-debug"
+        .\install.ps1 -ApiKey "dummy-api-key" -SkipKeyCheck -SkipTelemetry
+
+    - name: Run agent (simob version)
+      run: |
+        $env:DEBUG="1"
+        .\simob-windows-amd64.exe-debug version
+
+    - name: Run agent (simob config)
+      run: |
+        $env:DEBUG="1"
+        .\simob-windows-amd64.exe-debug config
+
+  # ------------------------------------------------------------------
+  # Release
+  # ------------------------------------------------------------------
   create-release:
     name: Create GitHub Release
-    needs: install-and-run
+    needs: [test-linux, test-windows]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -182,6 +232,8 @@ jobs:
         name: Release ${{ github.ref_name }}
         files: |
           artifacts/preview-linux-amd64/install.sh
+          artifacts/preview-windows-amd64/install.ps1
           artifacts/checksums
           artifacts/simob-linux-amd64
           artifacts/simob-linux-arm64
+          artifacts/simob-windows-amd64.exe
