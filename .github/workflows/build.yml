@@ -186,24 +186,13 @@ jobs:
       with:
         name: preview-windows-amd64
 
-    - name: Run install script
+    - name: Install and run agent
       run: |
         $env:BINARY_PATH=".\simob-windows-amd64.exe"
         .\install.ps1 -ApiKey "dummy-api-key" -SkipKeyCheck -SkipTelemetry -SkipServiceStart --dry-run
-
-    - name: Run agent (simob version)
-      run: |
         $env:DEBUG="1"
         simob version
-
-    - name: Run agent (simob config)
-      run: |
-        $env:DEBUG="1"
         simob config
-
-    - name: Run agent (simob start)
-      run: |
-        $env:DEBUG="1"
         simob start --dry-run
 
   # ------------------------------------------------------------------
