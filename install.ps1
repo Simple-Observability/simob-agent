@@ -69,6 +69,28 @@ function Get-Architecture {
   }
 }
 
+function Set-SystemPath {
+  param(
+    [Parameter(Mandatory=$true)]
+    [string]$PathToAdd
+  )
+
+  Write-Log "Attempting to add '$PathToAdd' to system path..."
+  $CurrentPath = [Environment]::GetEnvironmentVariable("Path", "Machine")
+  if (-not ($CurrentPath -split ';' -contains $PathToAdd)) {
+    [Environment]::SetEnvironmentVariable(
+      "Path", 
+      "$CurrentPath;$PathToAdd", 
+      "Machine"
+    )
+    Write-Log "Successfully updated system path."
+    # Update the current PowerShell session's environment variable immediately
+    $Env:Path = [Environment]::GetEnvironmentVariable("Path", "Machine")
+  } else {
+    Write-Log "Path already contains '$PathToAdd'. No change necessary."
+  }
+}
+
 # -----------------------------------------------------------------------------
 # Main
 # -----------------------------------------------------------------------------
@@ -134,6 +156,8 @@ try {
   Exit-WithTelemetry "Failed to move binary to install directory.?"
 }
 
+Set-SystemPath -PathToAdd $InstallDir
+
 # Initialize agent
 Write-Log "Initializing agent..."
 try {
@@ -174,4 +198,5 @@ Write-Log "----------------------------------------------------------------"
 Write-Log "Simple Observability (simob) agent installed successfully!"
 Write-Log "Location: $ExePath"
 Write-Log "Service:  $ServiceName (Running as LocalSystem)"
+Write-Log "Status: The 'simob' command is ready for use in this console."
 Write-Log "----------------------------------------------------------------"
