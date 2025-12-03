@@ -6,6 +6,8 @@ param (
 
   [switch]$SkipTelemetry,
 
+  [switch]$SkipServiceStart,
+
   [Parameter(ValueFromRemainingArguments=$true)]
   $ExtraArgs
 )
@@ -158,11 +160,13 @@ sc.exe failure $ServiceName reset= 86400 actions= restart/60000/restart/120000/t
 
 # Start Service
 Write-Log "Starting service..."
-try {
-  Start-Service -Name $ServiceName
-  Write-Log "Service started successfully."
-} catch {
-  Exit-WithTelemetry "Failed to start service: $_"
+if (-not $SkipServiceStart) {
+  try {
+    Start-Service -Name $ServiceName
+    Write-Log "Service started successfully."
+  } catch {
+    Exit-WithTelemetry "Failed to start service: $_"
+  }
 }
 
 Write-Log ""
