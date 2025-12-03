@@ -18,6 +18,8 @@ jobs:
       - uses: actions/setup-go@v4
         with:
           go-version: stable
+      - name: Install dependencies
+        run: sudo apt update && sudo apt install -y libsystemd-dev
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v8
         with:
