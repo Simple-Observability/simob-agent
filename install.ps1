@@ -4,6 +4,8 @@ param (
 
   [switch]$SkipKeyCheck,
 
+  [switch]$SkipTelemetry,
+
   [Parameter(ValueFromRemainingArguments=$true)]
   $ExtraArgs
 )
@@ -36,7 +38,7 @@ function Write-Log {
 function Exit-WithTelemetry {
   param([string]$Reason)
   Write-Log "Installation failed: $Reason" "ERROR"
-  if ($env:SKIP_TELEMETRY -eq "1") {
+  if ($SkipTelemetry) {
     exit 1
   }
   $TelemetryEndpoint = "$BaseUrl/telemetry/install"
@@ -66,7 +68,7 @@ function Get-Architecture {
 }
 
 # -----------------------------------------------------------------------------
-# Main 
+# Main
 # -----------------------------------------------------------------------------
 
 #  Admin Check
