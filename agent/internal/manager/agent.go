@@ -108,10 +108,10 @@ func (a *Agent) Run(dryRun bool) {
 		case evt := <-ctrl:
 			switch evt {
 			case Shutdown:
-				logger.Log.Info("Shutdown signal received. Shutting down all services.")
 				cancel()
 				a.wg.Wait()
 				common.ReleaseLock()
+				logger.Log.Info("Collectors stopped. Exiting.")
 				return
 			case Restart:
 				cancel()
