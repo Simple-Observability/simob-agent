@@ -188,18 +188,23 @@ jobs:
 
     - name: Run install script
       run: |
-        $env:BINARY_PATH=".\simob-windows-amd64.exe-debug"
+        $env:BINARY_PATH=".\simob-windows-amd64.exe"
         .\install.ps1 -ApiKey "dummy-api-key" -SkipKeyCheck -SkipTelemetry -SkipServiceStart --dry-run
 
     - name: Run agent (simob version)
       run: |
         $env:DEBUG="1"
-        .\simob-windows-amd64.exe-debug version
+        simob version
 
     - name: Run agent (simob config)
       run: |
         $env:DEBUG="1"
-        .\simob-windows-amd64.exe-debug config
+        simob config
+
+    - name: Run agent (simob start)
+      run: |
+        $env:DEBUG="1"
+        simob start --dry-run
 
   # ------------------------------------------------------------------
   # Release
