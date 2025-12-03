@@ -126,17 +126,9 @@ func Update() error {
 }
 
 // binaryName returns the name of the binary in the format "simob-<os>-<arch>".
-// It uses the OS and ARCH environment variables if set;
-// otherwise, it falls back to runtime.GOOS and runtime.GOARCH.
 func binaryName() string {
-	goos := os.Getenv("OS")
-	if goos == "" {
-		goos = runtime.GOOS
-	}
-	goarch := os.Getenv("ARCH")
-	if goarch == "" {
-		goarch = runtime.GOARCH
-	}
+	goos := runtime.GOOS
+	goarch := runtime.GOARCH
 	return fmt.Sprintf("simob-%s-%s", goos, goarch)
 }
 
