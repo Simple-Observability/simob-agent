@@ -36,7 +36,8 @@ jobs:
         include:
         - { runner: 'ubuntu-24.04', os: 'linux', arch: 'amd64' }
         - { runner: 'ubuntu-24.04-arm', os: 'linux', arch: 'arm64' }
-        - { runner: 'windows-latest', os: 'windows', arch: 'amd64' }
+        - { runner: 'windows-2022', os: 'windows', arch: 'amd64' }
+        - { runner: 'windows-11-arm', os: 'windows', arch: 'arm64' }
     runs-on: ${{ matrix.runner }}
 
     defaults:
@@ -175,12 +176,17 @@ jobs:
   # Test Windows
   # ------------------------------------------------------------------
   test-windows:
-    name: Test Windows
+    name: Test Windows (${{ matrix.arch }})
     needs: build
-    runs-on: windows-latest
     defaults:
       run:
         shell: powershell
+    strategy:
+      matrix:
+        include:
+          - { runner: 'windows-2022', os: 'windows', arch: 'amd64' }
+          - { runner: 'windows-11-arm', os: 'windows', arch: 'arm64' }
+    runs-on: ${{ matrix.runner }}
 
     steps:
     - name: Download agent artifact
@@ -233,3 +239,4 @@ jobs:
           artifacts/simob-linux-amd64
           artifacts/simob-linux-arm64
           artifacts/simob-windows-amd64.exe
+          artifacts/simob-windows-arm64.exe
