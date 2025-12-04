@@ -26,6 +26,21 @@ func init() {
 }
 
 func Start() {
+	// Check if running as Windows service
+	if isWindowsService() {
+		runAsWindowsService()
+		return
+	}
+
+	// Create and run the agent
+	agent, err := initializeAndLoadAgent(dryRun)
+	if err != nil {
+		os.Exit(1)
+	}
+	agent.Run(dryRun)
+}
+
+func initializeAndLoadAgent(dryRun bool) (*manager.Agent, error) {
 	// Initialize logger
 	debug := os.Getenv("DEBUG") == "1"
 	logger.Init(debug)
@@ -35,12 +50,11 @@ func Start() {
 	// Attempt to acquire a file lock to ensure only one instance is running.
 	if err := common.AcquireLock(); err != nil {
 		if errors.Is(err, common.ErrAlreadyRunning) {
-			// Exit if another instance is detected.
-			logger.Log.Info("Another instance of agent is already running. Exiting")
-			os.Exit(0)
+			logger.Log.Info("Another instance of agent is already running")
+			return nil, err
 		}
 		logger.Log.Error("failed to acquire process lock", "error", err)
-		os.Exit(1)
+		return nil, err
 	}
 
 	// Run init lifecycle
@@ -50,10 +64,10 @@ func Start() {
 	cfg, err := config.Load()
 	if err != nil {
 		logger.Log.Error("failed to load config", "error", err)
-		os.Exit(1)
+		return nil, err
 	}
 
-	// Create and run the agent
+	// Create the agent
 	agent := manager.NewAgent(cfg)
-	agent.Run(dryRun)
+	return agent, nil
 }
