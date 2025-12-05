@@ -51,7 +51,7 @@ func (r *ConfigWatcher) run(ctx context.Context, initialCfg *collection.Collecti
 	for {
 		select {
 		case <-ctx.Done():
-			logger.Log.Info("Config reloader received shutdown signal. Exiting.")
+			logger.Log.Info("Config reloader received shutdown signal.")
 			return
 
 		case <-ticker.C:

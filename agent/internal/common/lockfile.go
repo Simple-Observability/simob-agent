@@ -7,24 +7,33 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
-	"syscall"
 
 	"agent/internal/logger"
-)
 
-const PIDFilename = "pid"
+	"github.com/shirou/gopsutil/v4/process"
+)
 
 // ErrAlreadyRunning is the error returned when the agent is already running.
 var ErrAlreadyRunning = errors.New("agent already running")
 
-// AcquireLock ensures only one agent instance runs at a time.
-func AcquireLock() error {
+// pidFilePath determines the full path to the PID file.
+// Centralizing this logic reduces repetition across lock functions.
+func pidFilePath() (string, error) {
+	const PIDFilename = "pid"
 	programDirectory, err := GetProgramDirectory()
 	if err != nil {
-		return fmt.Errorf("can't acquire lock. failed to get program directory: %w", err)
+		return "", fmt.Errorf("failed to get program directory: %w", err)
+	}
+	return filepath.Join(programDirectory, PIDFilename), nil
+}
+
+// AcquireLock ensures only one agent instance runs at a time.
+func AcquireLock() error {
+	pidFilepath, err := pidFilePath()
+	if err != nil {
+		return fmt.Errorf("can't get PID file path: %w", err)
 	}
 
-	pidFilepath := filepath.Join(programDirectory, PIDFilename)
 	currentPID := os.Getpid()
 	file, err := os.OpenFile(pidFilepath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o660)
 
@@ -61,11 +70,11 @@ func AcquireLock() error {
 
 // ReleaseLock removes the PID file.
 func ReleaseLock() error {
-	programDirectory, err := GetProgramDirectory()
+	pidFilepath, err := pidFilePath()
 	if err != nil {
-		return fmt.Errorf("can't release lock. failed to get program directory: %w", err)
+		return fmt.Errorf("can't release lock: %w", err)
 	}
-	err = os.Remove(filepath.Join(programDirectory, PIDFilename))
+	err = os.Remove(pidFilepath)
 	return err
 }
 
@@ -73,12 +82,10 @@ func ReleaseLock() error {
 // It returns true if the PID file exists and the process within it is running.
 // It returns false if there is no lock file or the process is not running.
 func IsLockAcquired() (bool, error) {
-	programDirectory, err := GetProgramDirectory()
+	pidFilepath, err := pidFilePath()
 	if err != nil {
-		return false, fmt.Errorf("can't check for lock. failed to get program directory: %w", err)
+		return false, fmt.Errorf("can't get PID file path: %w", err)
 	}
-
-	pidFilepath := filepath.Join(programDirectory, PIDFilename)
 
 	// Check if the PID file exists.
 	_, err = os.Stat(pidFilepath)
@@ -108,11 +115,11 @@ func IsLockAcquired() (bool, error) {
 
 // readPID reads the integer PID from the lock file.
 func readPID() (int, error) {
-	programDirectory, err := GetProgramDirectory()
+	pidFilepath, err := pidFilePath()
 	if err != nil {
-		return 0, fmt.Errorf("can't read PID. failed to get program directory: %w", err)
+		return 0, fmt.Errorf("can't get PID file path: %w", err)
 	}
-	data, err := os.ReadFile(filepath.Join(programDirectory, PIDFilename))
+	data, err := os.ReadFile(pidFilepath)
 	if err != nil {
 		return 0, err
 	}
@@ -134,23 +141,10 @@ func overwritePIDFile(pidFilePath string, pid int) error {
 	return nil
 }
 
-// isProcessRunning checks if a process with the given PID is currently running.
 func isProcessRunning(pid int) bool {
-	process, err := os.FindProcess(pid)
+	exist, err := process.PidExists(int32(pid))
 	if err != nil {
 		return false
 	}
-	err = process.Signal(syscall.Signal(0))
-	if err == nil {
-		return true
-	}
-	// The process does not exist
-	if os.IsNotExist(err) {
-		return false
-	}
-	// The process exists, but we do not have permission to signal it.
-	if os.IsPermission(err) {
-		return true
-	}
-	return false
+	return exist
 }

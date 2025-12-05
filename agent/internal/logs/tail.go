@@ -7,7 +7,6 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
-	"syscall"
 	"time"
 
 	"github.com/hpcloud/tail"
@@ -201,14 +200,10 @@ func (r *TailRunner) savePositions() {
 
 // ------------------------ Fingerprint ------------------------
 
-// getFileFingerprint extracts inode and size for file identification
-func getFileFingerprint(path string) (FileFingerprint, error) {
-	stat, err := os.Stat(path)
-	if err != nil {
-		return FileFingerprint{}, err
-	}
-	sys := stat.Sys().(*syscall.Stat_t)
-	return FileFingerprint{Inode: sys.Ino, Size: stat.Size()}, nil
+// FileFingerprint represents unique file identity using inode and size
+type FileFingerprint struct {
+	Inode uint64 `json:"inode"`
+	Size  int64  `json:"size"`
 }
 
 // matchByFingerprint finds position entry by matching fingerprint
@@ -239,12 +234,6 @@ type PositionEntry struct {
 	Path        string          `json:"path"`
 	Fingerprint FileFingerprint `json:"fingerprint"`
 	Position    Position        `json:"position"`
-}
-
-// FileFingerprint represents unique file identity using inode and size
-type FileFingerprint struct {
-	Inode uint64 `json:"inode"`
-	Size  int64  `json:"size"`
 }
 
 // Position represents the current read position in a file
