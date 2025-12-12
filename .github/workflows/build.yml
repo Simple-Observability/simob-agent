@@ -197,7 +197,9 @@ jobs:
 
       - name: Run usage monitor
         # The usage monitor runs the simob start command in a controlled environment.
-        run: python3 monitor_resources.py --run "./simob-linux-amd64 start --dry-run"
+        run: |
+          chmod +x ./simob-linux-amd64
+          python3 monitor_resources.py --run "./simob-linux-amd64 start --dry-run"
 
   # ------------------------------------------------------------------
   # Test Windows
