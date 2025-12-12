@@ -173,6 +173,33 @@ jobs:
         go tool cover -func=coverage.txt | grep total
 
   # ------------------------------------------------------------------
+  # Resource Usage Monitor
+  # ------------------------------------------------------------------
+  test-usage-monitor:
+    name: Measure resource usage
+    needs: test-linux
+    continue-on-error: true
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Python 3
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Download agent artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: preview-linux-amd64
+
+      - name: Run usage monitor
+        # The usage monitor runs the simob start command in a controlled environment.
+        run: python3 monitor_resources.py --run "./simob-linux-amd64 start --dry-run"
+
+  # ------------------------------------------------------------------
   # Test Windows
   # ------------------------------------------------------------------
   test-windows:
