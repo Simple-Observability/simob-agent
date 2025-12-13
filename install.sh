@@ -63,10 +63,10 @@ fetch_binary() {
     OS="$(uname | tr '[:upper:]' '[:lower:]')"
     ARCH="$(uname -m)"
     case "$ARCH" in
-      x86_64)
+      x86_64|amd64)
         ARCH="amd64"
         ;;
-      aarch64)
+      aarch64|arm64)
         ARCH="arm64"
         ;;
       *)
