@@ -28,15 +28,13 @@ func Run(apiKey string, dryRun bool) {
 
 	// Create and save config
 	cfg := config.NewConfig(apiKey)
-  if !dryRun {
-	  err := cfg.Save()
-	  if err != nil {
-		  logger.Log.Error("Failed to save configuration. This might be due to insufficient permissions or an invalid configuration path.", slog.Any("error", err))
-		  os.Exit(1)
-	  } else {
-		  logger.Log.Info("API token saved to configuration successfully.")
-	  }
-  }
+	err := cfg.Save()
+	if err != nil {
+		logger.Log.Error("Failed to save configuration. This might be due to insufficient permissions or an invalid configuration path.", slog.Any("error", err))
+		os.Exit(1)
+	} else {
+		logger.Log.Info("API token saved to configuration successfully.")
+	}
 
 	// Init API client
 	client := api.NewClient(*cfg, dryRun)
