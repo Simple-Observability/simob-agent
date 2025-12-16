@@ -156,7 +156,7 @@ def run_and_measure(command, poll_hz=50):
   cpu_time = (end_cpu_ticks - start_cpu_ticks) / clock_ticks
   cpu_util = (cpu_time / runtime) * 100
   print("# CPU")
-  print(f"Utilization: {cpu_util:.2f}")
+  print(f"Utilization: {cpu_util:.2f}%")
   print()
 
   # Memory
@@ -170,8 +170,8 @@ def run_and_measure(command, poll_hz=50):
   read_bytes = end_disk_read - start_disk_read
   write_bytes = end_disk_write - start_disk_write
   print(f"# Disk I/O:")
-  print(f"Read: {read_bytes / 1000} kB ({read_bytes / runtime:.0f} B/s)")
-  print(f"Write: {write_bytes / 1000} kB ({write_bytes / runtime:.0f} B/s)")
+  print(f"Read: {read_bytes / 1000:.0f} kB ({read_bytes / runtime:.0f} B/s)")
+  print(f"Write: {write_bytes / 1000:.0f} kB ({write_bytes / runtime:.0f} B/s)")
   print("-------------------\n")
 
 
