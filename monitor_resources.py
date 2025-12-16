@@ -69,7 +69,7 @@ def lifetime_stats(pid):
   total_ticks = get_cpu_ticks(pid)
   cpu_util = (total_ticks / clock_ticks) / process_uptime
   print("CPU")
-  print(f"  Utilization (avg): {cpu_util*100:.2f}")
+  print(f"  Utilization (avg): {cpu_util*100:.2f} %")
 
   uss = get_mem_uss(args.pid)
   print("Memory:")
@@ -156,7 +156,7 @@ def run_and_measure(command, poll_hz=50):
   cpu_time = (end_cpu_ticks - start_cpu_ticks) / clock_ticks
   cpu_util = (cpu_time / runtime) * 100
   print("# CPU")
-  print(f"Utilization: {cpu_util:.2f}%")
+  print(f"Utilization: {cpu_util:.2f} %")
   print()
 
   # Memory
