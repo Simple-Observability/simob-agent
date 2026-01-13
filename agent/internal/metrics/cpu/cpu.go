@@ -56,7 +56,6 @@ func (c *CPUCollector) CollectAll() ([]metrics.DataPoint, error) {
 		if err != nil {
 			return nil, fmt.Errorf("failed to get second CPU sample: %w", err)
 		}
-		return []metrics.DataPoint{}, nil
 	}
 
 	if len(currStats) != len(c.lastStats) {
