@@ -48,9 +48,14 @@ func (c *CPUCollector) CollectAll() ([]metrics.DataPoint, error) {
 		return nil, fmt.Errorf("failed to get current CPU metrics: %w", err)
 	}
 
-	// First call: store initial stats and return no datapoints
+	// First call: capture a second sample after a short delay to have initial data
 	if c.lastStats == nil {
 		c.lastStats = currStats
+		time.Sleep(100 * time.Millisecond)
+		currStats, err = cpu.Times(true)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get second CPU sample: %w", err)
+		}
 		return []metrics.DataPoint{}, nil
 	}
 
