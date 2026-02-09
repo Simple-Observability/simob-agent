@@ -179,6 +179,13 @@ if (Get-Service -Name $ServiceName -ErrorAction SilentlyContinue) {
   Write-Log -Message "Created new service."
 }
 
+# Register event source for logging
+Write-Log "Registering event source..."
+if (-not [System.Diagnostics.EventLog]::SourceExists($ServiceName)) {
+  New-EventLog -LogName Application -Source $ServiceName
+  Write-Log "Event source '$ServiceName' registered."
+}
+
 # Set recovery options: Restart service on failure (1st, 2nd, and subsequent failures)
 sc.exe failure $ServiceName reset= 86400 actions= restart/60000/restart/120000/takeNoAction/0
 

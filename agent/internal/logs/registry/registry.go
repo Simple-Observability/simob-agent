@@ -7,6 +7,7 @@ import (
 	"agent/internal/logs/apache"
 	"agent/internal/logs/journalctl"
 	"agent/internal/logs/nginx"
+	"agent/internal/logs/winevent"
 )
 
 func BuildCollectors(cfg *collection.CollectionConfig) []logs.LogCollector {
@@ -14,6 +15,7 @@ func BuildCollectors(cfg *collection.CollectionConfig) []logs.LogCollector {
 		"journalctl": journalctl.NewJournalCTLCollector(),
 		"apache":     apache.NewApacheLogCollector(),
 		"nginx":      nginx.NewNginxLogCollector(),
+		"winevent":   winevent.NewWinEventCollector(),
 	}
 
 	// If cfg is nil, return all collectors
