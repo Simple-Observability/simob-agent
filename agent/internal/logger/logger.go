@@ -14,10 +14,13 @@ func Init(debug bool) {
 		level = slog.LevelDebug
 	}
 
-	// Set handler
-	handler := slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
-		Level: level,
-	})
+	opts := &slog.HandlerOptions{Level: level}
+	// getServiceHandler will return a platform-specific handler if running as a Windows service
+	handler := getServiceHandler(opts)
+	if handler == nil {
+		handler = slog.NewTextHandler(os.Stdout, opts)
+	}
+
 	Log = slog.New(handler)
 	slog.SetDefault(Log)
 }
