@@ -129,7 +129,11 @@ func Update() error {
 func binaryName() string {
 	goos := runtime.GOOS
 	goarch := runtime.GOARCH
-	return fmt.Sprintf("simob-%s-%s", goos, goarch)
+	name := fmt.Sprintf("simob-%s-%s", goos, goarch)
+	if goos == "windows" {
+		name += ".exe"
+	}
+	return name
 }
 
 // checkForUpdate checks the remote API for updates.

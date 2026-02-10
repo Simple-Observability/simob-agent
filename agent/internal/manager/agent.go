@@ -33,17 +33,19 @@ const (
 type Agent struct {
 	config    *config.Config
 	client    *api.Client
-	reloadCh  chan bool
-	restartCh chan bool
-	wg        *sync.WaitGroup
+	reloadCh   chan bool
+	restartCh  chan bool
+	shutdownCh chan bool
+	wg         *sync.WaitGroup
 }
 
 func NewAgent(cfg *config.Config) *Agent {
 	return &Agent{
-		config:    cfg,
-		reloadCh:  make(chan bool, 1),
-		restartCh: make(chan bool, 1),
-		wg:        &sync.WaitGroup{},
+		config:     cfg,
+		reloadCh:   make(chan bool, 1),
+		restartCh:  make(chan bool, 1),
+		shutdownCh: make(chan bool, 1),
+		wg:         &sync.WaitGroup{},
 	}
 }
 
@@ -54,8 +56,12 @@ func (a *Agent) Run(dryRun bool) {
 	go func() {
 		s := make(chan os.Signal, 1)
 		signal.Notify(s, syscall.SIGINT, syscall.SIGTERM)
-		<-s
-		ctrl <- Shutdown
+		select {
+		case <-s:
+			ctrl <- Shutdown
+		case <-a.shutdownCh:
+			ctrl <- Shutdown
+		}
 	}()
 
 	// Collection config change -> Reload event
@@ -142,6 +148,10 @@ func (a *Agent) Run(dryRun bool) {
 			}
 		}
 	}
+}
+
+func (a *Agent) Stop() {
+	close(a.shutdownCh)
 }
 
 func (a *Agent) startServices(ctx context.Context, dryRun bool) {

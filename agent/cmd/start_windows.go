@@ -4,8 +4,6 @@
 package cmd
 
 import (
-	"os"
-	"syscall"
 	"time"
 
 	"golang.org/x/sys/windows/svc"
@@ -102,11 +100,8 @@ func (ws *windowsService) stopAgent() {
 	if ws.agent != nil {
 		logger.Log.Info("Stopping agent...")
 
-		// Send SIGTERM to trigger graceful shutdown
-		p, err := os.FindProcess(os.Getpid())
-		if err == nil {
-			p.Signal(syscall.SIGTERM)
-		}
+		// Trigger graceful shutdown
+		ws.agent.Stop()
 
 		// Wait for agent to finish with timeout
 		select {
