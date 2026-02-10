@@ -129,7 +129,11 @@ func Update() error {
 func binaryName() string {
 	goos := runtime.GOOS
 	goarch := runtime.GOARCH
-	return fmt.Sprintf("simob-%s-%s", goos, goarch)
+	name := fmt.Sprintf("simob-%s-%s", goos, goarch)
+	if goos == "windows" {
+		name += ".exe"
+	}
+	return name
 }
 
 // checkForUpdate checks the remote API for updates.
@@ -310,8 +314,20 @@ func calculateFileSHA256(filePath string) (string, error) {
 
 // applyUpdate replaces the current executable file with the new one.
 // On Unix-like systems, os.Rename is atomic if src and dst are on the same filesystem.
+// On Windows, a running executable cannot be overwritten, so we move it aside first.
 func applyUpdate(newExecPath string, targetPath string) error {
 	fmt.Printf("Attempting to replace running executable '%s' with new binary '%s'\n", targetPath, newExecPath)
+
+	if runtime.GOOS == "windows" {
+		oldPath := targetPath + ".old"
+		// Remove existing .old file if it exists
+		_ = os.Remove(oldPath)
+		fmt.Printf("Windows detected: moving current binary to '%s' first\n", oldPath)
+		err := os.Rename(targetPath, oldPath)
+		if err != nil {
+			return fmt.Errorf("failed to move current binary aside: %w", err)
+		}
+	}
 
 	// Attempt to rename the new binary to the location of the current executable.
 	err := os.Rename(newExecPath, targetPath)
