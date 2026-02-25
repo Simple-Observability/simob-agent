@@ -10,14 +10,27 @@ import (
 	"agent/internal/metrics"
 )
 
+type PS interface {
+	CPUTimes(perCPU bool) ([]cpu.TimesStat, error)
+}
+
+type systemPS struct{}
+
+func (s *systemPS) CPUTimes(perCPU bool) ([]cpu.TimesStat, error) {
+	return cpu.Times(perCPU)
+}
+
 type CPUCollector struct {
 	metrics.BaseCollector
 
+	ps        PS
 	lastStats []cpu.TimesStat
 }
 
 func NewCPUCollector() *CPUCollector {
-	return &CPUCollector{}
+	return &CPUCollector{
+		ps: &systemPS{},
+	}
 }
 
 func (c *CPUCollector) Name() string {
@@ -43,7 +56,7 @@ func (c *CPUCollector) CollectAll() ([]metrics.DataPoint, error) {
 	timestamp := time.Now().UnixMilli()
 
 	// Get current stats
-	currStats, err := cpu.Times(true)
+	currStats, err := c.ps.CPUTimes(true)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get current CPU metrics: %w", err)
 	}
@@ -52,7 +65,7 @@ func (c *CPUCollector) CollectAll() ([]metrics.DataPoint, error) {
 	if c.lastStats == nil {
 		c.lastStats = currStats
 		time.Sleep(100 * time.Millisecond)
-		currStats, err = cpu.Times(true)
+		currStats, err = c.ps.CPUTimes(true)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get second CPU sample: %w", err)
 		}
@@ -193,7 +206,7 @@ func (c *CPUCollector) CollectAll() ([]metrics.DataPoint, error) {
 }
 
 func (c *CPUCollector) Discover() ([]collection.Metric, error) {
-	currStats, err := cpu.Times(true)
+	currStats, err := c.ps.CPUTimes(true)
 	if err != nil {
 		return nil, fmt.Errorf("failed to discover CPU metrics: %w", err)
 	}
