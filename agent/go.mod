@@ -3,7 +3,6 @@ module agent
 go 1.24
 
 require (
-	github.com/coreos/go-systemd v0.0.0-20191104093116-d3cd4ed1dbcf
 	github.com/google/winops v0.0.0-20251020162603-0c6d5ae5c5d6
 	github.com/hpcloud/tail v1.0.0
 	github.com/shirou/gopsutil/v4 v4.25.4
