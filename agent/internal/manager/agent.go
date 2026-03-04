@@ -31,8 +31,8 @@ const (
 )
 
 type Agent struct {
-	config    *config.Config
-	client    *api.Client
+	config     *config.Config
+	client     *api.Client
 	reloadCh   chan bool
 	restartCh  chan bool
 	shutdownCh chan bool
@@ -66,24 +66,42 @@ func (a *Agent) Run(dryRun bool) {
 
 	// Collection config change -> Reload event
 	go func() {
-		<-a.reloadCh
-		ctrl <- Reload
+		for {
+			select {
+			case <-a.shutdownCh:
+				return
+			case <-a.reloadCh:
+				ctrl <- Reload
+			}
+		}
 	}()
 
 	// Restart signal -> Restart event
 	go func() {
-		<-a.restartCh
-		ctrl <- Restart
+		for {
+			select {
+			case <-a.shutdownCh:
+				return
+			case <-a.restartCh:
+				ctrl <- Restart
+			}
+		}
 	}()
 
 	// Key check -> Hibernate event
 	keyCheckCh := make(chan bool, 1)
 	authguard.Get().Subscribe(keyCheckCh)
 	go func() {
-		<-keyCheckCh
-		valid, _ := a.client.CheckAPIKeyValidity()
-		if !valid {
-			ctrl <- Hibernate
+		for {
+			select {
+			case <-a.shutdownCh:
+				return
+			case <-keyCheckCh:
+				valid, _ := a.client.CheckAPIKeyValidity()
+				if !valid {
+					ctrl <- Hibernate
+				}
+			}
 		}
 	}()
 
