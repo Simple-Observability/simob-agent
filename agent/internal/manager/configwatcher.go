@@ -106,7 +106,11 @@ func (r *ConfigWatcher) checkConfigForChange() *collection.CollectionConfig {
 
 	if newHash != r.initialHash {
 		logger.Log.Info("Configuration has changed. Triggering reload.")
-		r.reloadCh <- true
+		select {
+		case r.reloadCh <- true:
+		default:
+			logger.Log.Debug("Reload channel full, skipping signal")
+		}
 		return newCfg
 	}
 	return newCfg

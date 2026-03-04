@@ -52,7 +52,11 @@ func (r *RestartWatcher) run(ctx context.Context) {
 			logger.Log.Debug("Checking for restart signal")
 			if restartRequested() {
 				logger.Log.Info("Restart signal detected. Triggering restart.")
-				r.restartCh <- true
+				select {
+				case r.restartCh <- true:
+				default:
+					logger.Log.Debug("Restart channel full, skipping signal")
+				}
 				return
 			}
 		}
