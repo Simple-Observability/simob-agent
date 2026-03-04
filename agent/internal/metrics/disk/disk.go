@@ -14,15 +14,39 @@ import (
 	"agent/internal/metrics"
 )
 
+type DiskPS interface {
+	Partitions(all bool) ([]disk.PartitionStat, error)
+	Usage(path string) (*disk.UsageStat, error)
+	IOCounters(names ...string) (map[string]disk.IOCountersStat, error)
+}
+
+type systemPS struct{}
+
+func (s *systemPS) Partitions(all bool) ([]disk.PartitionStat, error) {
+	return disk.Partitions(all)
+}
+
+func (s *systemPS) Usage(path string) (*disk.UsageStat, error) {
+	return disk.Usage(path)
+}
+
+func (s *systemPS) IOCounters(names ...string) (map[string]disk.IOCountersStat, error) {
+	return disk.IOCounters(names...)
+}
+
 type DiskCollector struct {
 	metrics.BaseCollector
 
+	ps        DiskPS
 	lastStats map[string]disk.IOCountersStat
 	lastTime  int64
 }
 
 func NewDiskCollector() *DiskCollector {
-	return &DiskCollector{lastStats: make(map[string]disk.IOCountersStat)}
+	return &DiskCollector{
+		ps:        &systemPS{},
+		lastStats: make(map[string]disk.IOCountersStat),
+	}
 }
 
 func (c *DiskCollector) Name() string {
@@ -44,8 +68,8 @@ func normalizeDeviceName(devicePath string) string {
 // getUniquePrimaryPartitions fetches all partitions, then filters them to ensure:
 // 1. Bind mounts are skipped (via "bind" option).
 // 2. Only the first encountered partition for a given underlying block device is included.
-func getUniquePrimaryPartitions() ([]disk.PartitionStat, error) {
-	partitions, err := disk.Partitions(false)
+func (c *DiskCollector) getUniquePrimaryPartitions() ([]disk.PartitionStat, error) {
+	partitions, err := c.ps.Partitions(false)
 	if err != nil {
 		return nil, err
 	}
@@ -163,12 +187,12 @@ func (c *DiskCollector) Collect() ([]metrics.DataPoint, error) {
 func (c *DiskCollector) CollectAll() ([]metrics.DataPoint, error) {
 	timestamp := time.Now().UnixMilli()
 
-	partitions, err := getUniquePrimaryPartitions()
+	partitions, err := c.getUniquePrimaryPartitions()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get unique primary partitions: %w", err)
 	}
 
-	currentIOCounters, err := disk.IOCounters()
+	currentIOCounters, err := c.ps.IOCounters()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get disk I/O info: %w", err)
 	}
@@ -177,7 +201,7 @@ func (c *DiskCollector) CollectAll() ([]metrics.DataPoint, error) {
 	var datapoints []metrics.DataPoint
 	for _, p := range partitions {
 		// Collect usage metrics
-		usage, err := disk.Usage(p.Mountpoint)
+		usage, err := c.ps.Usage(p.Mountpoint)
 		if err != nil {
 			logger.Log.Error("failed to get usage stats", "mountpoint", p.Mountpoint)
 			continue
@@ -219,7 +243,7 @@ func (c *DiskCollector) CollectAll() ([]metrics.DataPoint, error) {
 }
 
 func (c *DiskCollector) Discover() ([]collection.Metric, error) {
-	partitions, err := getUniquePrimaryPartitions()
+	partitions, err := c.getUniquePrimaryPartitions()
 	if err != nil {
 		return nil, fmt.Errorf("failed to discover disk partitions: %w", err)
 	}
