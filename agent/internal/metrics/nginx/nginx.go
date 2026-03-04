@@ -13,15 +13,41 @@ import (
 	"agent/internal/metrics"
 )
 
+type NginxPS interface {
+	GetStatusPageBody(url string) (string, error)
+}
+
+type systemPS struct{}
+
+func (s *systemPS) GetStatusPageBody(url string) (string, error) {
+	resp, err := http.Get(url)
+	if err != nil {
+		return "", fmt.Errorf("failed to scrape nginx stub_status: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body := new(strings.Builder)
+	_, err = bufio.NewReader(resp.Body).WriteTo(body)
+	if err != nil {
+		return "", fmt.Errorf("failed to read response body: %w", err)
+	}
+
+	return body.String(), nil
+}
+
 type NginxCollector struct {
 	metrics.BaseCollector
 
+	ps        NginxPS
 	url       string
 	lastStats *nginxStats
 }
 
 func NewNginxCollector() *NginxCollector {
-	return &NginxCollector{url: "http://localhost/nginx_status"}
+	return &NginxCollector{
+		ps:  &systemPS{},
+		url: "http://localhost/nginx_status",
+	}
 }
 
 func (c *NginxCollector) Name() string {
@@ -98,9 +124,9 @@ func (c *NginxCollector) Collect() ([]metrics.DataPoint, error) {
 }
 
 func (c *NginxCollector) CollectAll() ([]metrics.DataPoint, error) {
-	stats, err := getStatsFromStatusPage(c.url)
+	stats, err := c.getStatsFromStatusPage()
 	if err != nil {
-		logger.Log.Debug("Failed to collect metrics", "collector", c.Name, "error", err)
+		logger.Log.Debug("Failed to collect metrics", "collector", c.Name(), "error", err)
 		return nil, nil
 	}
 
@@ -121,7 +147,7 @@ func (c *NginxCollector) CollectAll() ([]metrics.DataPoint, error) {
 }
 
 func (c *NginxCollector) Discover() ([]collection.Metric, error) {
-	_, err := getStatsFromStatusPage(c.url)
+	_, err := c.getStatsFromStatusPage()
 	if err != nil {
 		return nil, nil
 	}
@@ -138,9 +164,9 @@ func (c *NginxCollector) Discover() ([]collection.Metric, error) {
 	return discovered, nil
 }
 
-func getStatsFromStatusPage(url string) (*nginxStats, error) {
+func (c *NginxCollector) getStatsFromStatusPage() (*nginxStats, error) {
 	timestamp := time.Now().UnixMilli()
-	body, err := getStatusPageBody(url)
+	body, err := c.ps.GetStatusPageBody(c.url)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get stub_status response: %w", err)
 	}
@@ -152,22 +178,6 @@ func getStatsFromStatusPage(url string) (*nginxStats, error) {
 	stats.Ts = timestamp
 
 	return stats, err
-}
-
-func getStatusPageBody(url string) (string, error) {
-	resp, err := http.Get(url)
-	if err != nil {
-		return "", fmt.Errorf("failed to scrape nginx stub_status: %w", err)
-	}
-	defer resp.Body.Close()
-
-	body := new(strings.Builder)
-	_, err = bufio.NewReader(resp.Body).WriteTo(body)
-	if err != nil {
-		return "", fmt.Errorf("failed to read response body: %w", err)
-	}
-
-	return body.String(), nil
 }
 
 // parseStubStatus parse the nginx response body and extract values

@@ -27,10 +27,31 @@ jobs:
           working-directory: agent
 
   # ------------------------------------------------------------------
+  # Unit Tests
+  # ------------------------------------------------------------------
+  test:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v4
+        with:
+          go-version: '1.24'
+          cache-dependency-path: ./agent/go.sum
+      - name: Install dependencies
+        run: sudo apt update && sudo apt install -y libsystemd-dev
+      - name: Run unit tests
+        run: |
+          go test -v -coverprofile=coverage.txt ./...
+          go tool cover -func=coverage.txt
+        working-directory: ./agent
+
+  # ------------------------------------------------------------------
   # Build
   # ------------------------------------------------------------------
   build:
     name: "Build (${{ matrix.os }}/${{ matrix.arch }})"
+    needs: test
     strategy:
       matrix:
         include:
@@ -82,7 +103,6 @@ jobs:
         # Debug
         echo "Building debug binaries..."
         GOOS=${{ matrix.os }} GOARCH=${{ matrix.arch }} go build \
-          -cover \
           -gcflags="all=-N -l" \
           -ldflags "-X 'agent/internal/version.Version=${{ env.VERSION }}.debug'" \
           -o ../${{ env.BINARY_NAME }}-debug \
@@ -134,11 +154,6 @@ jobs:
         sudo BINARY_PATH="${{ env.BINARY_NAME }}-debug" SKIP_TELEMETRY=1 bash install.sh dummy-api-key --skip-key-check -- --dry-run
         sudo systemctl stop simob.service
 
-    - name: Prepare code coverage directory
-      run: |
-        sudo mkdir -p /tmp/coverage_data
-        sudo chmod 777 /tmp/coverage_data
-
     - name: Run agent (simob version)
       run: sudo -u simob-agent env DEBUG=1 simob version
 
@@ -146,36 +161,12 @@ jobs:
       run: sudo -u simob-agent env DEBUG=1 simob config
 
     - name: Run agent (simob start)
-      run: sudo -u simob-agent env DEBUG=1 GOCOVERDIR=/tmp/coverage_data simob start --dry-run
-
-    - name: Checkout repository
-      uses: actions/checkout@v4
-
-    - name: Generate coverage report
-      if: ${{ matrix.arch == 'amd64' }}
-      run: |
-        sudo chown -R $USER:$USER /tmp/coverage_data
-        cd agent
-        echo "Generating coverage reports..."
-        go tool covdata textfmt -i=/tmp/coverage_data -o coverage.txt
-        echo "=========================================="
-        echo " Go Coverage Report by Package (Sorted)"
-        echo "=========================================="
-        go tool covdata percent -i=/tmp/coverage_data | awk '
-        {
-            pkg = $1;
-            coverage = $3;
-            printf "%-50s %s\n", pkg, coverage;
-        }' | sort -k 2 -r -n
-        echo "=========================================="
-        echo "      Go Total Coverage (Statements)"
-        echo "=========================================="
-        go tool cover -func=coverage.txt | grep total
+      run: sudo -u simob-agent env DEBUG=1 simob start --dry-run
 
   # ------------------------------------------------------------------
   # Resource Usage Monitor
   # ------------------------------------------------------------------
-  test-usage-monitor:
+  usage-monitor:
     name: Measure resource usage
     needs: test-linux
     continue-on-error: true
@@ -196,7 +187,6 @@ jobs:
           name: preview-linux-amd64
 
       - name: Run usage monitor
-        # The usage monitor runs the simob start command in a controlled environment.
         run: |
           chmod +x ./simob-linux-amd64
           python3 monitor_resources.py --run "./simob-linux-amd64 start --dry-run"

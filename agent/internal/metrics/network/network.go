@@ -9,15 +9,28 @@ import (
 	"github.com/shirou/gopsutil/v4/net"
 )
 
+type NetworkPS interface {
+	IOCounters(pernic bool) ([]net.IOCountersStat, error)
+}
+
+type systemPS struct{}
+
+func (s *systemPS) IOCounters(pernic bool) ([]net.IOCountersStat, error) {
+	return net.IOCounters(pernic)
+}
+
 type NetworkCollector struct {
 	metrics.BaseCollector
 
+	ps        NetworkPS
 	lastStats map[string]net.IOCountersStat
 	lastTime  time.Time
 }
 
 func NewNetworkCollector() *NetworkCollector {
-	return &NetworkCollector{}
+	return &NetworkCollector{
+		ps: &systemPS{},
+	}
 }
 
 func (c *NetworkCollector) Name() string {
@@ -56,7 +69,7 @@ func (c *NetworkCollector) Collect() ([]metrics.DataPoint, error) {
 
 func (c *NetworkCollector) CollectAll() ([]metrics.DataPoint, error) {
 	timestamp := time.Now()
-	ioStats, err := net.IOCounters(true)
+	ioStats, err := c.ps.IOCounters(true)
 	if err != nil {
 		return nil, fmt.Errorf("failed to collect network IO stats: %w", err)
 	}
@@ -99,7 +112,7 @@ func (c *NetworkCollector) CollectAll() ([]metrics.DataPoint, error) {
 }
 
 func (c *NetworkCollector) Discover() ([]collection.Metric, error) {
-	ioStats, err := net.IOCounters(true)
+	ioStats, err := c.ps.IOCounters(true)
 	if err != nil {
 		return nil, fmt.Errorf("failed to discover network interfaces: %w", err)
 	}
