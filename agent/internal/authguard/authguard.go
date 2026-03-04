@@ -56,7 +56,11 @@ func (ag *AuthGuard) HandleUnauthorized() {
 	if ag.errorCount >= errorThreshold {
 		logger.Log.Warn("authentication error threshold reached, sending a key check signal")
 		if ag.keyCheckCh != nil {
-			ag.keyCheckCh <- keyCheckSignal
+			select {
+			case ag.keyCheckCh <- keyCheckSignal:
+			default:
+				logger.Log.Debug("Key check channel full, skipping signal")
+			}
 		}
 		// Reset counter after signaling for a check
 		ag.errorCount = 0
