@@ -10,12 +10,30 @@ import (
 	"agent/internal/metrics"
 )
 
+type MemoryPS interface {
+	VirtualMemory() (*mem.VirtualMemoryStat, error)
+	SwapMemory() (*mem.SwapMemoryStat, error)
+}
+
+type systemPS struct{}
+
+func (s *systemPS) VirtualMemory() (*mem.VirtualMemoryStat, error) {
+	return mem.VirtualMemory()
+}
+
+func (s *systemPS) SwapMemory() (*mem.SwapMemoryStat, error) {
+	return mem.SwapMemory()
+}
+
 type MemoryCollector struct {
 	metrics.BaseCollector
+	ps MemoryPS
 }
 
 func NewMemoryCollector() *MemoryCollector {
-	return &MemoryCollector{}
+	return &MemoryCollector{
+		ps: &systemPS{},
+	}
 }
 
 func (c *MemoryCollector) Name() string {
@@ -64,11 +82,11 @@ func (c *MemoryCollector) Collect() ([]metrics.DataPoint, error) {
 func (c *MemoryCollector) CollectAll() ([]metrics.DataPoint, error) {
 	timestamp := time.Now().UnixMilli()
 
-	vm, err := mem.VirtualMemory()
+	vm, err := c.ps.VirtualMemory()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get virtual memory info: %w", err)
 	}
-	sm, err := mem.SwapMemory()
+	sm, err := c.ps.SwapMemory()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get swap memory info: %w", err)
 	}
@@ -95,7 +113,7 @@ func (c *MemoryCollector) CollectAll() ([]metrics.DataPoint, error) {
 
 func (c *MemoryCollector) Discover() ([]collection.Metric, error) {
 	var discovered []collection.Metric
-	_, err := mem.VirtualMemory()
+	_, err := c.ps.VirtualMemory()
 	if err != nil {
 		return nil, fmt.Errorf("failed to discover memory metrics: %w", err)
 	}
@@ -107,7 +125,7 @@ func (c *MemoryCollector) Discover() ([]collection.Metric, error) {
 			Labels: map[string]string{},
 		})
 	}
-	_, err = mem.SwapMemory()
+	_, err = c.ps.SwapMemory()
 	if err != nil {
 		return nil, fmt.Errorf("failed to discover swap metrics: %w", err)
 	}
