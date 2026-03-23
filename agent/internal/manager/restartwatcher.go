@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"sync"
 	"time"
 
 	"agent/internal/common"
@@ -21,12 +22,14 @@ import (
 // The returned channel will emit 'true' when a new restart signal is detected.
 type RestartWatcher struct {
 	restartCh chan<- bool
+	wg        *sync.WaitGroup
 }
 
 // NewRestartWatcher creates a new instance of the RestartWatcher.
-func NewRestartWatcher(restartCh chan<- bool) *RestartWatcher {
+func NewRestartWatcher(restartCh chan<- bool, wg *sync.WaitGroup) *RestartWatcher {
 	return &RestartWatcher{
 		restartCh: restartCh,
+		wg:        wg,
 	}
 }
 
@@ -38,6 +41,8 @@ func (r *RestartWatcher) Start(ctx context.Context) {
 
 // run is the main loop for checking the restart signal.
 func (r *RestartWatcher) run(ctx context.Context) {
+	defer r.wg.Done()
+
 	ticker := time.NewTicker(5 * time.Second)
 	defer ticker.Stop()
 

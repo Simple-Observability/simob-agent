@@ -264,13 +264,13 @@ if [[ "$IS_SUDO_MODE" == "true" ]]; then
 
 fi
 
-echo "[*] Initializing simob with provided API key..."
+echo "[*] Saving API key to config file..."
 if [[ "$IS_SUDO_MODE" == "true" ]]; then
-  sudo -u "$CUSTOM_USER" "$INSTALL_PATH" init "$API_KEY" "${EXTRA_ARGS[@]}"
+  sudo -u "$CUSTOM_USER" "$INSTALL_PATH" config "api_key=$API_KEY"
 else
-  $INSTALL_PATH init "$API_KEY" "${EXTRA_ARGS[@]}"
+  "$INSTALL_PATH" config "api_key=$API_KEY"
 fi
-echo "[+] Initialization complete."
+echo "[+] API key saved."
 
 # Apply the new systemd configuration and finish installation
 if [ "${SKIP_SYSTEMD}" = false ]; then
@@ -283,7 +283,7 @@ fi
 
 echo ""
 echo ""
-echo "[*] Simple Observability (simob) agent has been installed and initialized successfully."
+echo "[*] Simple Observability (simob) agent has been installed successfully."
 echo ""
 if [[ "$IS_SUDO_MODE" == "true" ]]; then
   if [ "${SKIP_SYSTEMD}" = false ]; then

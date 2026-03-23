@@ -79,8 +79,8 @@ function Set-SystemPath {
   $CurrentPath = [Environment]::GetEnvironmentVariable("Path", "Machine")
   if (-not ($CurrentPath -split ';' -contains $PathToAdd)) {
     [Environment]::SetEnvironmentVariable(
-      "Path", 
-      "$CurrentPath;$PathToAdd", 
+      "Path",
+      "$CurrentPath;$PathToAdd",
       "Machine"
     )
     Write-Log "Successfully updated system path."
@@ -158,15 +158,15 @@ try {
 
 Set-SystemPath -PathToAdd $InstallDir
 
-# Initialize agent
-Write-Log "Initializing agent..."
+# Save API key to config
+Write-Log "Saving API key to config file..."
 try {
-  $InitProcess = Start-Process -FilePath $ExePath -ArgumentList "init `"$ApiKey`" $ExtraArgs" -Wait -NoNewWindow -PassThru
-  if ($InitProcess.ExitCode -ne 0) {
-    throw "Agent init command returned exit code $($InitProcess.ExitCode)"
+  $ConfigProcess = Start-Process -FilePath $ExePath -ArgumentList "config `"api_key=$ApiKey`"" -Wait -NoNewWindow -PassThru
+  if ($ConfigProcess.ExitCode -ne 0) {
+    throw "Agent config command returned exit code $($ConfigProcess.ExitCode)"
   }
 } catch {
-  Exit-WithTelemetry "Agent initialization failed: $_"
+  Exit-WithTelemetry "Failed to save API key to config file: $_"
 }
 
 # Setup Windows service

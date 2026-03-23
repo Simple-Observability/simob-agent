@@ -2,16 +2,18 @@ package cmd
 
 import (
 	"errors"
+	"fmt"
 	"os"
 
 	"github.com/spf13/cobra"
 
 	"agent/internal/common"
 	"agent/internal/config"
-	"agent/internal/initializer"
 	"agent/internal/logger"
 	"agent/internal/manager"
 )
+
+var dryRun bool
 
 var startCmd = &cobra.Command{
 	Use:   "start",
@@ -57,13 +59,15 @@ func initializeAndLoadAgent(dryRun bool) (*manager.Agent, error) {
 		return nil, err
 	}
 
-	// Run init lifecycle
-	initializer.Run("", dryRun)
-
 	// Load config
 	cfg, err := config.Load()
 	if err != nil {
 		logger.Log.Error("failed to load config", "error", err)
+		return nil, err
+	}
+	if cfg.APIKey == "" {
+		err = fmt.Errorf("missing API key in config")
+		logger.Log.Error("failed to start agent", "error", err)
 		return nil, err
 	}
 
