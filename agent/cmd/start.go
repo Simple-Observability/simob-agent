@@ -35,14 +35,14 @@ func Start() {
 	}
 
 	// Create and run the agent
-	agent, err := initializeAndLoadAgent(dryRun)
+	agent, err := initializeAndLoadAgent()
 	if err != nil {
 		os.Exit(1)
 	}
 	agent.Run(dryRun)
 }
 
-func initializeAndLoadAgent(dryRun bool) (*manager.Agent, error) {
+func initializeAndLoadAgent() (*manager.Agent, error) {
 	// Initialize logger
 	debug := os.Getenv("DEBUG") == "1"
 	logger.Init(debug)
