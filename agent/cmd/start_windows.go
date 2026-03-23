@@ -79,7 +79,7 @@ func (ws *windowsService) Execute(args []string, r <-chan svc.ChangeRequest, cha
 }
 
 func (ws *windowsService) startAgent() error {
-	agent, err := initializeAndLoadAgent(false)
+	agent, err := initializeAndLoadAgent()
 	if err != nil {
 		return err
 	}
