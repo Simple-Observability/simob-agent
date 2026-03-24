@@ -37,6 +37,7 @@ func (r *ConfigWatcher) Start(ctx context.Context, initialCfg *collection.Collec
 		os.Exit(1)
 	}
 	r.initialHash = hash
+	logger.Log.Debug("Saved initial config hash", "hash", hash)
 
 	go r.run(ctx, initialCfg)
 }
@@ -109,6 +110,7 @@ func (r *ConfigWatcher) checkConfigForChange() *collection.CollectionConfig {
 		return newCfg
 	}
 
+	logger.Log.Debug("Comparing initial vs new config hash", "initial", r.initialHash, "new", newHash)
 	if newHash != r.initialHash {
 		logger.Log.Info("Configuration has changed. Triggering reload.")
 		r.initialHash = newHash
