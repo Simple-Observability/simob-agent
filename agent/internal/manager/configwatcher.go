@@ -3,6 +3,7 @@ package manager
 import (
 	"context"
 	"os"
+	"sync"
 	"time"
 
 	"agent/internal/api"
@@ -15,13 +16,15 @@ type ConfigWatcher struct {
 	client      *api.Client
 	initialHash string
 	reloadCh    chan<- bool
+	wg          *sync.WaitGroup
 }
 
 // NewConfigWatcher creates a new instance of the ConfigWatcher.
-func NewConfigWatcher(client *api.Client, reloadCh chan<- bool) *ConfigWatcher {
+func NewConfigWatcher(client *api.Client, reloadCh chan<- bool, wg *sync.WaitGroup) *ConfigWatcher {
 	return &ConfigWatcher{
 		client:   client,
 		reloadCh: reloadCh,
+		wg:       wg,
 	}
 }
 
@@ -40,6 +43,8 @@ func (r *ConfigWatcher) Start(ctx context.Context, initialCfg *collection.Collec
 
 // Run is the main loop for checking config changes with dynamic intervals.
 func (r *ConfigWatcher) run(ctx context.Context, initialCfg *collection.CollectionConfig) {
+	defer r.wg.Done()
+
 	currentTickDuration := determineTickDuration(initialCfg)
 
 	// Create the initial ticker

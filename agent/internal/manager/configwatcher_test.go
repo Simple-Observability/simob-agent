@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"sync"
 	"testing"
 	"time"
 
@@ -48,7 +49,7 @@ func TestConfigWatcher_ReloadBlocking(t *testing.T) {
 	// Create a reload channel with buffer size 1
 	reloadCh := make(chan bool, 1)
 
-	cw := NewConfigWatcher(apiClient, reloadCh)
+	cw := NewConfigWatcher(apiClient, reloadCh, &sync.WaitGroup{})
 	// Set initial hash
 	hash, err := initialCfg.Hash()
 	require.NoError(t, err)

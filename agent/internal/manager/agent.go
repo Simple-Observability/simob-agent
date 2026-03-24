@@ -10,7 +10,6 @@ import (
 
 	"agent/internal/api"
 	"agent/internal/authguard"
-	"agent/internal/collection"
 	"agent/internal/common"
 	"agent/internal/config"
 	"agent/internal/exporter"
@@ -173,23 +172,27 @@ func (a *Agent) Stop() {
 }
 
 func (a *Agent) startServices(ctx context.Context, dryRun bool) {
-	var clcCfg *collection.CollectionConfig
-	var err error
-	clcCfg, err = a.client.GetCollectionConfig()
+	// Start config watcher
+	clcCfg, err := a.client.GetCollectionConfig()
 	if err != nil {
 		logger.Log.Error("exiting due to error when fetching config", "error", err)
 		os.Exit(1)
 	}
-
-	// Start config watcher
 	if !dryRun && clcCfg != nil {
-		configWatcher := NewConfigWatcher(a.client, a.reloadCh)
+		a.wg.Add(1)
+		configWatcher := NewConfigWatcher(a.client, a.reloadCh, a.wg)
 		configWatcher.Start(ctx, clcCfg)
 	}
 
 	// Start restart watcher
-	restartWatcher := NewRestartWatcher(a.restartCh)
+	a.wg.Add(1)
+	restartWatcher := NewRestartWatcher(a.restartCh, a.wg)
 	restartWatcher.Start(ctx)
+
+	// Start discovery loop
+	a.wg.Add(1)
+	discovery := NewDiscovery(a.client, a.wg)
+	discovery.Start(ctx)
 
 	exporter, err := exporter.NewExporter(a.config, dryRun)
 	if err != nil {
