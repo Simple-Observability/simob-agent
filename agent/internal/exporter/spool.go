@@ -49,29 +49,52 @@ type spool struct {
 	logsQueue    diskqueue.Interface
 }
 
-func newSpool() (*spool, error) {
-	programDirectory, err := common.GetProgramDirectory()
-	if err != nil {
-		return nil, fmt.Errorf("can't create spool directory. failed to get program directory: %w", err)
+type spoolOption func(*spoolParams)
+type spoolParams struct {
+	directory string
+	syncEvery int64
+}
+
+func withDirectory(dir string) spoolOption {
+	return func(p *spoolParams) { p.directory = dir }
+}
+func withSyncEvery(every int64) spoolOption {
+	return func(p *spoolParams) { p.syncEvery = every }
+}
+func newSpool(opts ...spoolOption) (*spool, error) {
+	// Defaults
+	params := &spoolParams{
+		syncEvery: syncEvery,
 	}
 
-	directory := filepath.Join(programDirectory, "spool")
-	err = os.MkdirAll(directory, 0o770)
+	for _, opt := range opts {
+		opt(params)
+	}
+
+	if params.directory == "" {
+		programDirectory, err := common.GetProgramDirectory()
+		if err != nil {
+			return nil, fmt.Errorf("can't create spool directory. failed to get program directory: %w", err)
+		}
+		params.directory = filepath.Join(programDirectory, "spool")
+	}
+
+	err := os.MkdirAll(params.directory, 0o770)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create spool directory: %w", err)
 	}
 
 	dummyLogger := func(lvl diskqueue.LogLevel, f string, args ...interface{}) {}
 	metricsQueue := diskqueue.New(
-		metricsQueueName, directory, maxBytesPerFile,
+		metricsQueueName, params.directory, maxBytesPerFile,
 		minMsgSize, maxMsgSize,
-		syncEvery, syncTimeout,
+		params.syncEvery, syncTimeout,
 		dummyLogger,
 	)
 	logsQueue := diskqueue.New(
-		logsQueueName, directory, maxBytesPerFile,
+		logsQueueName, params.directory, maxBytesPerFile,
 		minMsgSize, maxMsgSize,
-		syncEvery, syncTimeout,
+		params.syncEvery, syncTimeout,
 		dummyLogger,
 	)
 
@@ -101,6 +124,10 @@ func (s *spool) getBatch(fromQueue string, unmarshal func([]byte) (Payload, erro
 		queue = s.metricsQueue
 	}
 
+	if queue.Depth() == 0 {
+		return nil, false, nil
+	}
+
 	var toSend []Payload
 	cutoff := time.Now().Add(-maxAge).UnixMilli()
 	for len(toSend) < maxBatchSize {
@@ -118,13 +145,12 @@ func (s *spool) getBatch(fromQueue string, unmarshal func([]byte) (Payload, erro
 				continue
 			}
 			toSend = append(toSend, obj)
-		default:
-			// empty queue
-			return toSend, false, nil
+		case <-time.After(50 * time.Millisecond):
+			// Timeout waiting for next item, return what we have
+			return toSend, queue.Depth() > 0, nil
 		}
 	}
-	hasMore := queue.Depth() > 0
-	return toSend, hasMore, nil
+	return toSend, queue.Depth() > 0, nil
 }
 
 func (s *spool) close() {

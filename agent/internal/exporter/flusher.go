@@ -35,11 +35,7 @@ type payloadConfig struct {
 	unmarshal func([]byte) (Payload, error)
 }
 
-func newFlusher(spool *spool, dryRun bool) (*flusher, error) {
-	cfg, err := config.Load()
-	if err != nil {
-		return nil, fmt.Errorf("failed to load exporter configuration: %w", err)
-	}
+func newFlusher(spool *spool, cfg *config.Config, dryRun bool) (*flusher, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &flusher{
 		apiKey:     cfg.APIKey,

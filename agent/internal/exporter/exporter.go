@@ -3,6 +3,7 @@ package exporter
 import (
 	"fmt"
 
+	"agent/internal/config"
 	"agent/internal/logger"
 )
 
@@ -38,13 +39,13 @@ type Exporter struct {
 
 // NewExporter creates a new Exporter instance.
 // It loads configuration and initializes the HTTP client.
-func NewExporter(dryRun bool) (*Exporter, error) {
+func NewExporter(cfg *config.Config, dryRun bool) (*Exporter, error) {
 	spool, err := newSpool()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create spool instance: %w", err)
 	}
 
-	flusher, err := newFlusher(spool, dryRun)
+	flusher, err := newFlusher(spool, cfg, dryRun)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create flusher instance: %w", err)
 	}

@@ -191,7 +191,7 @@ func (a *Agent) startServices(ctx context.Context, dryRun bool) {
 	restartWatcher := NewRestartWatcher(a.restartCh)
 	restartWatcher.Start(ctx)
 
-	exporter, err := exporter.NewExporter(dryRun)
+	exporter, err := exporter.NewExporter(a.config, dryRun)
 	if err != nil {
 		logger.Log.Error("cannot initialize exporter", "error", err)
 		os.Exit(1)
