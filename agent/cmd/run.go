@@ -1,14 +1,14 @@
 package cmd
 
 import (
-	"bufio"
+	"bytes"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
 	"os/exec"
 	"os/signal"
-	"sync"
+	"strings"
 	"syscall"
 	"time"
 
@@ -46,6 +46,10 @@ func init() {
 }
 
 func runCommand(cmd *cobra.Command, args []string) {
+	os.Exit(runCommandWithExitCode(cmd, args))
+}
+
+func runCommandWithExitCode(cmd *cobra.Command, args []string) int {
 	logger.Init(false)
 
 	jobKey := args[0]
@@ -57,44 +61,47 @@ func runCommand(cmd *cobra.Command, args []string) {
 	}
 	if len(commandToRunArgs) == 0 {
 		fmt.Println("Error: No command provided to run. See 'simob run --help' for usage.")
-		os.Exit(1)
+		return 1
 	}
 
 	cfg, err := config.Load()
 	if err != nil {
 		logger.Log.Error("failed to load config", "error", err)
-		os.Exit(1)
+		return 1
 	}
 	monitorURL := fmt.Sprintf("%s/jobs/p/%s", cfg.APIUrl, jobKey)
 
 	command := exec.Command(commandToRunArgs[0], commandToRunArgs[1:]...)
 	command.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 
-	var wg sync.WaitGroup
-
 	var exp *exporter.Exporter
 	if captureOutput {
-		// Initialize exporter early if we are capturing output
 		exp, err = exporter.NewExporterWithoutFlusher()
 		if err != nil {
 			logger.Log.Error("failed to create exporter", "error", err)
 		} else {
 			defer exp.Close()
-			stdoutPipe, _ := command.StdoutPipe()
-			stderrPipe, _ := command.StderrPipe()
-			wg.Add(2)
-			go streamLogs(jobKey, "stdout", stdoutPipe, exp, &wg)
-			go streamLogs(jobKey, "stderr", stderrPipe, exp, &wg)
+
+			stdoutCapture := newLogCaptureWriter(jobKey, "stdout", exp)
+			defer stdoutCapture.Close()
+			command.Stdout = io.MultiWriter(os.Stdout, stdoutCapture)
+
+			stderrCapture := newLogCaptureWriter(jobKey, "stderr", exp)
+			defer stderrCapture.Close()
+			command.Stderr = io.MultiWriter(os.Stderr, stderrCapture)
 		}
-	} else {
-		// If not capturing, just link directly to the terminal
+	}
+
+	if command.Stdout == nil {
 		command.Stdout = os.Stdout
+	}
+	if command.Stderr == nil {
 		command.Stderr = os.Stderr
 	}
 
-	// Handle signals for graceful shutdown
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+	defer signal.Stop(sigChan)
 	go func() {
 		sig := <-sigChan
 		if command.Process != nil {
@@ -109,9 +116,8 @@ func runCommand(cmd *cobra.Command, args []string) {
 	if err != nil {
 		reportStatus(monitorURL, "fail")
 		logger.Log.Error("failed to start command", "error", err)
-		os.Exit(1)
+		return 1
 	}
-	wg.Wait()
 	err = command.Wait()
 
 	if err != nil {
@@ -122,13 +128,15 @@ func runCommand(cmd *cobra.Command, args []string) {
 
 	if err != nil {
 		if exitError, ok := err.(*exec.ExitError); ok {
-			os.Exit(exitError.ExitCode())
+			return exitError.ExitCode()
 		} else {
-			os.Exit(1)
+			return 1
 		}
 	}
-	os.Exit(0)
+	return 0
 }
+
+var statusHTTPClient = &http.Client{Timeout: 10 * time.Second}
 
 func reportStatus(monitorURL, state string) {
 	url := fmt.Sprintf("%s?state=%s", monitorURL, state)
@@ -137,7 +145,7 @@ func reportStatus(monitorURL, state string) {
 		logger.Log.Error("failed to create request for status reporting", "error", err)
 		return
 	}
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := statusHTTPClient.Do(req)
 	if err != nil {
 		logger.Log.Error("failed to report status", "error", err, "state", state)
 		return
@@ -148,35 +156,75 @@ func reportStatus(monitorURL, state string) {
 	}
 }
 
-func streamLogs(jobKey, streamName string, pipe io.ReadCloser, exp *exporter.Exporter, wg *sync.WaitGroup) {
-	defer wg.Done()
+type logCaptureWriter struct {
+	jobKey     string
+	streamName string
+	exp        *exporter.Exporter
+	buf        bytes.Buffer
+}
 
-	labels := map[string]string{"source": "cron"}
-
-	scanner := bufio.NewScanner(pipe)
-	for scanner.Scan() {
-		line := scanner.Text()
-		if streamName == "stdout" {
-			fmt.Fprintln(os.Stdout, line)
-		} else {
-			fmt.Fprintln(os.Stderr, line)
-		}
-
-		// TODO: add execution id
-		logPayload := exporter.LogPayload{
-			Timestamp: fmt.Sprintf("%d", time.Now().UnixMilli()),
-			Labels:    labels,
-			Metadata:  map[string]string{"job": jobKey, "stream": streamName},
-			Message:   line,
-		}
-
-		if exp != nil {
-			if err := exp.ExportLog([]exporter.LogPayload{logPayload}); err != nil {
-				logger.Log.Error("failed to export log line", "error", err, "job_key", jobKey)
-			}
-		}
+func newLogCaptureWriter(jobKey, streamName string, exp *exporter.Exporter) *logCaptureWriter {
+	return &logCaptureWriter{
+		jobKey:     jobKey,
+		streamName: streamName,
+		exp:        exp,
 	}
-	if err := scanner.Err(); err != nil {
-		logger.Log.Error("error reading stream", "stream", streamName, "error", err)
+}
+
+func (w *logCaptureWriter) Write(p []byte) (int, error) {
+	if _, err := w.buf.Write(p); err != nil {
+		return 0, err
+	}
+
+	for {
+		line, ok := w.nextLine()
+		if !ok {
+			break
+		}
+		w.exportLine(line)
+	}
+
+	return len(p), nil
+}
+
+func (w *logCaptureWriter) Close() error {
+	if w.buf.Len() == 0 {
+		return nil
+	}
+
+	line := strings.TrimRight(w.buf.String(), "\r\n")
+	w.buf.Reset()
+	if line != "" {
+		w.exportLine(line)
+	}
+
+	return nil
+}
+
+func (w *logCaptureWriter) nextLine() (string, bool) {
+	data := w.buf.Bytes()
+	idx := bytes.IndexByte(data, '\n')
+	if idx == -1 {
+		return "", false
+	}
+
+	line := string(data[:idx])
+	if strings.HasSuffix(line, "\r") {
+		line = strings.TrimSuffix(line, "\r")
+	}
+	w.buf.Next(idx + 1)
+	return line, true
+}
+
+func (w *logCaptureWriter) exportLine(line string) {
+	logPayload := exporter.LogPayload{
+		Timestamp: fmt.Sprintf("%d", time.Now().UnixMilli()),
+		Labels:    map[string]string{"source": "cron"},
+		Metadata:  map[string]string{"job": w.jobKey, "stream": w.streamName},
+		Message:   line,
+	}
+
+	if err := w.exp.ExportLog([]exporter.LogPayload{logPayload}); err != nil {
+		logger.Log.Error("failed to export log line", "error", err, "job_key", w.jobKey)
 	}
 }
