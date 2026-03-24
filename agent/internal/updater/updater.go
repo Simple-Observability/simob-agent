@@ -81,7 +81,7 @@ func Update() error {
 	defer func() {
 		if _, err := os.Stat(newBinaryPath); err == nil {
 			fmt.Printf("Cleaning up temporary file: %s\n", newBinaryPath)
-			os.Remove(newBinaryPath)
+			_ = os.Remove(newBinaryPath)
 		}
 	}()
 
