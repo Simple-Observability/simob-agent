@@ -5,6 +5,7 @@ go 1.24
 require (
 	github.com/google/winops v0.0.0-20251020162603-0c6d5ae5c5d6
 	github.com/hpcloud/tail v1.0.0
+	github.com/nsqio/go-diskqueue v1.1.0
 	github.com/shirou/gopsutil/v4 v4.25.4
 	github.com/spf13/cobra v1.9.1
 	github.com/stretchr/testify v1.11.1

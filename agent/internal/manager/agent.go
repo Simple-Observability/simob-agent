@@ -194,7 +194,7 @@ func (a *Agent) startServices(ctx context.Context, dryRun bool) {
 	discovery := NewDiscovery(a.client, a.wg)
 	discovery.Start(ctx)
 
-	exporter, err := exporter.NewExporter(dryRun)
+	exporter, err := exporter.NewExporter(a.config, dryRun)
 	if err != nil {
 		logger.Log.Error("cannot initialize exporter", "error", err)
 		os.Exit(1)
