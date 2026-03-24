@@ -154,6 +154,10 @@ func (s *spool) getBatch(fromQueue string, unmarshal func([]byte) (Payload, erro
 }
 
 func (s *spool) close() {
-	s.metricsQueue.Close()
-	s.logsQueue.Close()
+	if err := s.metricsQueue.Close(); err != nil {
+		logger.Log.Error("failed to close metrics queue", "error", err)
+	}
+	if err := s.logsQueue.Close(); err != nil {
+		logger.Log.Error("failed to close logs queue", "error", err)
+	}
 }
