@@ -6,4 +6,5 @@ scc \
   -s code \
   --no-cocomo \
   --no-size \
+  --not-match "_test\.go$" \
   agent/
