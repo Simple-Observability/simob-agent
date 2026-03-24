@@ -33,6 +33,7 @@ const (
 type Agent struct {
 	config     *config.Config
 	client     *api.Client
+	exporter   *exporter.Exporter
 	reloadCh   chan bool
 	restartCh  chan bool
 	shutdownCh chan bool
@@ -132,25 +133,21 @@ func (a *Agent) Run(dryRun bool) {
 		case evt := <-ctrl:
 			switch evt {
 			case Shutdown:
-				cancel()
-				a.wg.Wait()
+				a.stopServices(cancel)
 				common.ReleaseLock()
 				logger.Log.Info("Collectors stopped. Exiting.")
 				return
 			case Restart:
-				cancel()
-				a.wg.Wait()
+				a.stopServices(cancel)
 				common.ReleaseLock()
 				logger.Log.Info("Agent stopped for restart. Automatic restart will only happen if running under systemd.")
 				os.Exit(1)
 			case Reload:
-				cancel()
-				a.wg.Wait()
+				a.stopServices(cancel)
 				logger.Log.Info("Reloading collectors")
 				continue
 			case Hibernate:
-				cancel()
-				a.wg.Wait()
+				a.stopServices(cancel)
 				if a.hibernate(ctrl) {
 					return
 				}
@@ -158,8 +155,7 @@ func (a *Agent) Run(dryRun bool) {
 			}
 		case <-ctx.Done():
 			if dryRun {
-				cancel()
-				a.wg.Wait()
+				a.stopServices(cancel)
 				common.ReleaseLock()
 				logger.Log.Info("Dry run finished. Exiting agent.")
 				return
@@ -191,7 +187,7 @@ func (a *Agent) startServices(ctx context.Context, dryRun bool) {
 	restartWatcher := NewRestartWatcher(a.restartCh)
 	restartWatcher.Start(ctx)
 
-	exporter, err := exporter.NewExporter(dryRun)
+	a.exporter, err = exporter.NewExporter(dryRun)
 	if err != nil {
 		logger.Log.Error("cannot initialize exporter", "error", err)
 		os.Exit(1)
@@ -200,7 +196,7 @@ func (a *Agent) startServices(ctx context.Context, dryRun bool) {
 	logsCollectors := logsRegistry.BuildCollectors(clcCfg)
 	logger.Log.Info("Starting log collectors", "count", len(logsCollectors))
 	a.wg.Add(1)
-	go logs.StartCollection(logsCollectors, ctx, a.wg, exporter)
+	go logs.StartCollection(logsCollectors, ctx, a.wg, a.exporter)
 
 	metricsCollectors := metricsRegistry.BuildCollectors(clcCfg)
 	collectionInterval := 60 * time.Second
@@ -209,7 +205,7 @@ func (a *Agent) startServices(ctx context.Context, dryRun bool) {
 	}
 	logger.Log.Info("Starting metric collectors", "count", len(metricsCollectors))
 	a.wg.Add(1)
-	go metrics.StartCollection(metricsCollectors, collectionInterval, ctx, a.wg, exporter)
+	go metrics.StartCollection(metricsCollectors, collectionInterval, ctx, a.wg, a.exporter)
 }
 
 func (a *Agent) hibernate(ctrl <-chan ControlEvent) (exit bool) {
@@ -235,5 +231,16 @@ func (a *Agent) hibernate(ctrl <-chan ControlEvent) (exit bool) {
 				return false
 			}
 		}
+	}
+}
+
+func (a *Agent) stopServices(cancel context.CancelFunc) {
+	cancel()
+	a.wg.Wait()
+	if a.exporter != nil {
+		if err := a.exporter.Close(); err != nil {
+			logger.Log.Error("failed to close exporter", "error", err)
+		}
+		a.exporter = nil
 	}
 }
