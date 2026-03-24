@@ -74,30 +74,12 @@ func runCommandWithExitCode(cmd *cobra.Command, args []string) int {
 	command := exec.Command(commandToRunArgs[0], commandToRunArgs[1:]...)
 	command.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 
-	var exp *exporter.Exporter
-	if captureOutput {
-		exp, err = exporter.NewExporterWithoutFlusher()
-		if err != nil {
-			logger.Log.Error("failed to create exporter", "error", err)
-		} else {
-			defer exp.Close()
-
-			stdoutCapture := newLogCaptureWriter(jobKey, "stdout", exp)
-			defer stdoutCapture.Close()
-			command.Stdout = io.MultiWriter(os.Stdout, stdoutCapture)
-
-			stderrCapture := newLogCaptureWriter(jobKey, "stderr", exp)
-			defer stderrCapture.Close()
-			command.Stderr = io.MultiWriter(os.Stderr, stderrCapture)
-		}
+	logCapture, err := newCommandLogCapture(jobKey, captureOutput)
+	if err != nil {
+		logger.Log.Error("failed to initialize command log capture", "error", err)
 	}
-
-	if command.Stdout == nil {
-		command.Stdout = os.Stdout
-	}
-	if command.Stderr == nil {
-		command.Stderr = os.Stderr
-	}
+	defer logCapture.Close()
+	logCapture.attach(command)
 
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
@@ -119,6 +101,8 @@ func runCommandWithExitCode(cmd *cobra.Command, args []string) int {
 		return 1
 	}
 	err = command.Wait()
+
+	logCapture.closeNow()
 
 	if err != nil {
 		reportStatus(monitorURL, "fail")
@@ -156,6 +140,76 @@ func reportStatus(monitorURL, state string) {
 	}
 }
 
+type commandLogCapture struct {
+	jobKey string
+	exp    *exporter.Exporter
+	stdout *logCaptureWriter
+	stderr *logCaptureWriter
+}
+
+func newCommandLogCapture(jobKey string, enabled bool) (*commandLogCapture, error) {
+	capture := &commandLogCapture{jobKey: jobKey}
+	if !enabled {
+		return capture, nil
+	}
+
+	exp, err := exporter.NewExporterWithoutFlusher()
+	if err != nil {
+		return capture, err
+	}
+
+	capture.exp = exp
+	capture.stdout = newLogCaptureWriter(jobKey, "stdout", exp)
+	capture.stderr = newLogCaptureWriter(jobKey, "stderr", exp)
+	return capture, nil
+}
+
+func (c *commandLogCapture) attach(command *exec.Cmd) {
+	if c.stdout != nil {
+		command.Stdout = io.MultiWriter(os.Stdout, c.stdout)
+	} else {
+		command.Stdout = os.Stdout
+	}
+
+	if c.stderr != nil {
+		command.Stderr = io.MultiWriter(os.Stderr, c.stderr)
+	} else {
+		command.Stderr = os.Stderr
+	}
+}
+
+func (c *commandLogCapture) Close() {
+	if c == nil {
+		return
+	}
+	c.closeNow()
+}
+
+func (c *commandLogCapture) closeNow() {
+	if c == nil {
+		return
+	}
+
+	c.closeWriter("stderr", &c.stderr)
+	c.closeWriter("stdout", &c.stdout)
+
+	if c.exp != nil {
+		c.exp.Close()
+		c.exp = nil
+	}
+}
+
+func (c *commandLogCapture) closeWriter(streamName string, writer **logCaptureWriter) {
+	if *writer == nil {
+		return
+	}
+
+	if err := (*writer).Close(); err != nil {
+		logger.Log.Error("failed to flush command output capture", "error", err, "job_key", c.jobKey, "stream", streamName)
+	}
+	*writer = nil
+}
+
 type logCaptureWriter struct {
 	jobKey     string
 	streamName string
@@ -175,7 +229,6 @@ func (w *logCaptureWriter) Write(p []byte) (int, error) {
 	if _, err := w.buf.Write(p); err != nil {
 		return 0, err
 	}
-
 	for {
 		line, ok := w.nextLine()
 		if !ok {
@@ -183,7 +236,6 @@ func (w *logCaptureWriter) Write(p []byte) (int, error) {
 		}
 		w.exportLine(line)
 	}
-
 	return len(p), nil
 }
 
@@ -191,13 +243,11 @@ func (w *logCaptureWriter) Close() error {
 	if w.buf.Len() == 0 {
 		return nil
 	}
-
 	line := strings.TrimRight(w.buf.String(), "\r\n")
 	w.buf.Reset()
 	if line != "" {
 		w.exportLine(line)
 	}
-
 	return nil
 }
 
@@ -207,7 +257,6 @@ func (w *logCaptureWriter) nextLine() (string, bool) {
 	if idx == -1 {
 		return "", false
 	}
-
 	line := string(data[:idx])
 	if strings.HasSuffix(line, "\r") {
 		line = strings.TrimSuffix(line, "\r")
@@ -223,7 +272,6 @@ func (w *logCaptureWriter) exportLine(line string) {
 		Metadata:  map[string]string{"job": w.jobKey, "stream": w.streamName},
 		Message:   line,
 	}
-
 	if err := w.exp.ExportLog([]exporter.LogPayload{logPayload}); err != nil {
 		logger.Log.Error("failed to export log line", "error", err, "job_key", w.jobKey)
 	}
