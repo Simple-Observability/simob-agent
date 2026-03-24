@@ -40,9 +40,24 @@ type Exporter struct {
 // NewExporter creates a new Exporter instance.
 // It loads configuration and initializes the HTTP client.
 func NewExporter(cfg *config.Config, dryRun bool) (*Exporter, error) {
-	spool, err := newSpool()
+	return newExporter(cfg, dryRun, true)
+}
+
+// NewExporterWithoutFlusher creates a new Exporter instance that only spools payloads.
+// Exported payloads are persisted locally until another process flushes the spool.
+func NewExporterWithoutFlusher() (*Exporter, error) {
+	return newExporter(nil, false, false)
+}
+
+func newExporter(cfg *config.Config, dryRun bool, startFlusher bool, opts ...spoolOption) (*Exporter, error) {
+	spool, err := newSpool(opts...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create spool instance: %w", err)
+	}
+
+	e := &Exporter{spool: spool}
+	if !startFlusher {
+		return e, nil
 	}
 
 	flusher, err := newFlusher(spool, cfg, dryRun)
@@ -50,7 +65,7 @@ func NewExporter(cfg *config.Config, dryRun bool) (*Exporter, error) {
 		return nil, fmt.Errorf("failed to create flusher instance: %w", err)
 	}
 
-	e := &Exporter{spool: spool, flusher: flusher}
+	e.flusher = flusher
 	e.flusher.start()
 	return e, nil
 }
@@ -91,6 +106,8 @@ func (e *Exporter) ExportLog(logs []LogPayload) error {
 
 // Close gracefully shuts down the exporter
 func (e *Exporter) Close() {
-	e.flusher.stop()
+	if e.flusher != nil {
+		e.flusher.stop()
+	}
 	e.spool.close()
 }

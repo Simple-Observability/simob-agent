@@ -69,3 +69,31 @@ func TestExporter_ExportLog(t *testing.T) {
 	assert.Len(t, spooled, 1)
 	assert.Equal(t, "test_l", spooled[0].(LogPayload).Message)
 }
+
+func TestNewExporterWithoutFlusher(t *testing.T) {
+	logger.Init(true)
+
+	tempDir, err := os.MkdirTemp("", "exporter_no_flusher_test")
+	require.NoError(t, err)
+	defer os.RemoveAll(tempDir)
+
+	e, err := newExporter(nil, false, false, withDirectory(tempDir), withSyncEvery(1))
+	require.NoError(t, err)
+	require.NotNil(t, e)
+	assert.Nil(t, e.flusher)
+	defer e.Close()
+
+	now := time.Now().UnixMilli()
+	ts := strconv.FormatInt(now, 10)
+	metrics := []MetricPayload{
+		{Timestamp: ts, Name: "test_no_flush_metric", Value: 1.0},
+	}
+
+	err = e.ExportMetric(metrics)
+	require.NoError(t, err)
+
+	spooled, _, err := e.spool.getBatch(metricsQueueName, unmarshalMetric)
+	require.NoError(t, err)
+	assert.Len(t, spooled, 1)
+	assert.Equal(t, "test_no_flush_metric", spooled[0].(MetricPayload).Name)
+}
