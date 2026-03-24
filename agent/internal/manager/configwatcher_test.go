@@ -73,3 +73,41 @@ func TestConfigWatcher_ReloadBlocking(t *testing.T) {
 		assert.Fail(t, "checkConfigForChange blocked on second reload")
 	}
 }
+
+func TestConfigWatcher_UpdatesHashAfterChange(t *testing.T) {
+	var (
+		mu  sync.Mutex
+		cfg = collection.CollectionConfig{
+			LogSources: []collection.LogSource{{Name: "test", Path: "/var/log/test"}},
+		}
+	)
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		defer mu.Unlock()
+		w.Header().Set("Content-Type", "application/json")
+		err := json.NewEncoder(w).Encode(cfg)
+		require.NoError(t, err)
+	}))
+	defer server.Close()
+
+	initialCfg := &collection.CollectionConfig{}
+	apiClient := api.NewClient(config.Config{
+		APIUrl: server.URL,
+		APIKey: "test-key",
+	}, false)
+	reloadCh := make(chan bool, 2)
+
+	cw := NewConfigWatcher(apiClient, reloadCh, &sync.WaitGroup{})
+	hash, err := initialCfg.Hash()
+	require.NoError(t, err)
+	cw.initialHash = hash
+
+	firstCfg := cw.checkConfigForChange()
+	require.NotNil(t, firstCfg)
+	assert.Len(t, reloadCh, 1)
+
+	secondCfg := cw.checkConfigForChange()
+	require.NotNil(t, secondCfg)
+	assert.Len(t, reloadCh, 1, "same config should not retrigger reload")
+}

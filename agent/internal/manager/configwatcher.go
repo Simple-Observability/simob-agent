@@ -111,6 +111,7 @@ func (r *ConfigWatcher) checkConfigForChange() *collection.CollectionConfig {
 
 	if newHash != r.initialHash {
 		logger.Log.Info("Configuration has changed. Triggering reload.")
+		r.initialHash = newHash
 		select {
 		case r.reloadCh <- true:
 		default:
