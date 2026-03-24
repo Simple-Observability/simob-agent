@@ -240,10 +240,5 @@ func (a *Agent) hibernate(ctrl <-chan ControlEvent) (exit bool) {
 func (a *Agent) stopServices(cancel context.CancelFunc) {
 	cancel()
 	a.wg.Wait()
-	if a.exporter != nil {
-		if err := a.exporter.Close(); err != nil {
-			logger.Log.Error("failed to close exporter", "error", err)
-		}
-		a.exporter = nil
-	}
+	a.exporter.Close()
 }
