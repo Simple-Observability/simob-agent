@@ -43,7 +43,7 @@ jobs:
         run: sudo apt update && sudo apt install -y libsystemd-dev
       - name: Run unit tests
         run: |
-          go test -v -coverprofile=coverage.txt ./...
+          go test -v -coverprofile=coverage.txt $(go list ./... | grep -v '^github.com/nsqio/go-diskqueue$')
           go tool cover -func=coverage.txt
         working-directory: ./agent
 

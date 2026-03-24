@@ -2,6 +2,8 @@ module agent
 
 go 1.24
 
+replace github.com/nsqio/go-diskqueue => ./thirdparty/go-diskqueue
+
 require (
 	github.com/google/winops v0.0.0-20251020162603-0c6d5ae5c5d6
 	github.com/hpcloud/tail v1.0.0

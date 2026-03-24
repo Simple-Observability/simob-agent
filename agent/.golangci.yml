@@ -6,6 +6,8 @@ run:
 linters:
   exclusions:
     generated: lax
+    paths:
+      - thirdparty/go-diskqueue
     rules:
       - source: '^\s*defer .*\.Close\(\)$'
         linters:
