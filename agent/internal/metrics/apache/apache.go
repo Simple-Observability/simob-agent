@@ -82,7 +82,7 @@ var apacheMetrics = []struct {
 	getVal func(current, previous *apacheStats) float64
 }{
 	{
-		"apache_accesses_total", "no",
+		"apache_requests_total", "no",
 		func(current, previous *apacheStats) float64 { return current.AccessesTotal },
 	},
 	{
@@ -109,7 +109,7 @@ var apacheMetrics = []struct {
 		func(current, previous *apacheStats) float64 { return current.BytesTotal },
 	},
 	{
-		"apache_bytes_rate", "rate",
+		"apache_bytes_bps", "bps",
 		func(current, previous *apacheStats) float64 {
 			if previous == nil {
 				return 0

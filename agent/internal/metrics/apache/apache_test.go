@@ -55,10 +55,10 @@ Scoreboard: _W_R_.......`
 	}
 
 	expectedMetrics := map[string]float64{
-		"apache_accesses_total":                100,
+		"apache_requests_total":                100,
 		"apache_requests_rate":                 0,
 		"apache_bytes_total":                   50 * 1024,
-		"apache_bytes_rate":                    0,
+		"apache_bytes_bps":                     0,
 		"apache_uptime_seconds":                10,
 		"apache_workers_busy_total":            2,
 		"apache_workers_idle_total":            8,
