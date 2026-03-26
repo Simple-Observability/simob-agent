@@ -8,8 +8,6 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/nsqio/go-diskqueue"
-
 	"agent/internal/common"
 	"agent/internal/logger"
 )
@@ -19,11 +17,6 @@ const (
 	logsQueueName    = "logs"
 	maxBatchSize     = 100
 	maxAge           = 24 * time.Hour
-	maxBytesPerFile  = int64(1e8)
-	minMsgSize       = int32(1)
-	maxMsgSize       = int32(1e7)
-	syncEvery        = int64(100)
-	syncTimeout      = 2 * time.Second
 )
 
 // unmarshalMetric unmarshals a metric payload from JSON
@@ -45,27 +38,21 @@ func unmarshalLog(data []byte) (Payload, error) {
 }
 
 type spool struct {
-	metricsQueue diskqueue.Interface
-	logsQueue    diskqueue.Interface
+	metricsQueue *jsonlQueue
+	logsQueue    *jsonlQueue
 }
 
 type spoolOption func(*spoolParams)
 type spoolParams struct {
 	directory string
-	syncEvery int64
 }
 
 func withDirectory(dir string) spoolOption {
 	return func(p *spoolParams) { p.directory = dir }
 }
-func withSyncEvery(every int64) spoolOption {
-	return func(p *spoolParams) { p.syncEvery = every }
-}
+
 func newSpool(opts ...spoolOption) (*spool, error) {
-	// Defaults
-	params := &spoolParams{
-		syncEvery: syncEvery,
-	}
+	params := &spoolParams{}
 
 	for _, opt := range opts {
 		opt(params)
@@ -84,19 +71,8 @@ func newSpool(opts ...spoolOption) (*spool, error) {
 		return nil, fmt.Errorf("failed to create spool directory: %w", err)
 	}
 
-	dummyLogger := func(lvl diskqueue.LogLevel, f string, args ...interface{}) {}
-	metricsQueue := diskqueue.New(
-		metricsQueueName, params.directory, maxBytesPerFile,
-		minMsgSize, maxMsgSize,
-		params.syncEvery, syncTimeout,
-		dummyLogger,
-	)
-	logsQueue := diskqueue.New(
-		logsQueueName, params.directory, maxBytesPerFile,
-		minMsgSize, maxMsgSize,
-		params.syncEvery, syncTimeout,
-		dummyLogger,
-	)
+	metricsQueue := newJSONLQueue(metricsQueueName, params.directory)
+	logsQueue := newJSONLQueue(logsQueueName, params.directory)
 
 	return &spool{metricsQueue, logsQueue}, nil
 }
@@ -110,9 +86,9 @@ func (s *spool) append(payload Payload) error {
 
 	switch payload.(type) {
 	case *MetricPayload, MetricPayload:
-		return s.metricsQueue.Put(payloadBytes)
+		return s.metricsQueue.Append(payloadBytes)
 	case *LogPayload, LogPayload:
-		return s.logsQueue.Put(payloadBytes)
+		return s.logsQueue.Append(payloadBytes)
 	default:
 		return fmt.Errorf("unsupported payload type: %T", payload)
 	}
@@ -124,33 +100,26 @@ func (s *spool) getBatch(fromQueue string, unmarshal func([]byte) (Payload, erro
 		queue = s.metricsQueue
 	}
 
-	if queue.Depth() == 0 {
-		return nil, false, nil
+	lines, hasMore, err := queue.PopBatch(maxBatchSize)
+	if err != nil {
+		return nil, false, err
 	}
 
 	var toSend []Payload
 	cutoff := time.Now().Add(-maxAge).UnixMilli()
-	for len(toSend) < maxBatchSize {
-		select {
-		case data := <-queue.ReadChan():
-			// Skip corrupted entries
-			obj, err := unmarshal(data)
-			if err != nil {
-				logger.Log.Error("failed to unmarshal spool entry", "line", data, "error", err)
-				continue
-			}
-			// Skip stale (old) entries
-			if t, err := strconv.ParseInt(obj.GetTimestamp(), 10, 64); err == nil && t < cutoff {
-				logger.Log.Debug("skipping stale entry", "timestamp", obj.GetTimestamp())
-				continue
-			}
-			toSend = append(toSend, obj)
-		case <-time.After(50 * time.Millisecond):
-			// Timeout waiting for next item, return what we have
-			return toSend, queue.Depth() > 0, nil
+	for _, data := range lines {
+		obj, err := unmarshal(data)
+		if err != nil {
+			logger.Log.Error("failed to unmarshal spool entry", "line", string(data), "error", err)
+			continue
 		}
+		if t, err := strconv.ParseInt(obj.GetTimestamp(), 10, 64); err == nil && t < cutoff {
+			logger.Log.Debug("skipping stale entry", "timestamp", obj.GetTimestamp())
+			continue
+		}
+		toSend = append(toSend, obj)
 	}
-	return toSend, queue.Depth() > 0, nil
+	return toSend, hasMore, nil
 }
 
 func (s *spool) close() {

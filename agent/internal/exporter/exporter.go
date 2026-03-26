@@ -46,7 +46,7 @@ func NewExporter(cfg *config.Config, dryRun bool) (*Exporter, error) {
 // NewExporterWithoutFlusher creates a new Exporter instance that only spools payloads.
 // Exported payloads are persisted locally until another process flushes the spool.
 func NewExporterWithoutFlusher() (*Exporter, error) {
-	return newExporter(nil, false, false, withSyncEvery(1))
+	return newExporter(nil, false, false)
 }
 
 func newExporter(cfg *config.Config, dryRun bool, startFlusher bool, opts ...spoolOption) (*Exporter, error) {
