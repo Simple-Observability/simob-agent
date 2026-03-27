@@ -70,6 +70,15 @@ func newSpool(opts ...spoolOption) (*spool, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to create spool directory: %w", err)
 	}
+	info, err := os.Stat(params.directory)
+	if err == nil {
+		if info.Mode().Perm() != 0o770 {
+			err = os.Chmod(params.directory, 0o770)
+			if err != nil {
+				logger.Log.Debug("Could not set directory permissions", "error", err)
+			}
+		}
+	}
 
 	metricsQueue := newJSONLQueue(metricsQueueName, params.directory)
 	logsQueue := newJSONLQueue(logsQueueName, params.directory)
