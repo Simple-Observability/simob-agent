@@ -83,11 +83,25 @@ func (c *commandLogCapture) closeWriter(streamName string, writer **logCaptureWr
 	*writer = nil
 }
 
+func (c *commandLogCapture) setExecutionID(executionID string) {
+	if c == nil || executionID == "" {
+		return
+	}
+
+	if c.stdout != nil {
+		c.stdout.executionID = executionID
+	}
+	if c.stderr != nil {
+		c.stderr.executionID = executionID
+	}
+}
+
 type logCaptureWriter struct {
-	jobKey     string
-	streamName string
-	exp        *exporter.Exporter
-	buf        bytes.Buffer
+	jobKey      string
+	streamName  string
+	executionID string
+	exp         *exporter.Exporter
+	buf         bytes.Buffer
 }
 
 func newLogCaptureWriter(jobKey, streamName string, exp *exporter.Exporter) *logCaptureWriter {
@@ -142,10 +156,18 @@ func (w *logCaptureWriter) exportLine(line string) {
 	logPayload := exporter.LogPayload{
 		Timestamp: fmt.Sprintf("%d", time.Now().UnixMilli()),
 		Labels:    map[string]string{"source": "cron"},
-		Metadata:  map[string]string{"job": w.jobKey, "stream": w.streamName},
+		Metadata:  w.metadata(),
 		Message:   line,
 	}
 	if err := w.exp.ExportLog([]exporter.LogPayload{logPayload}); err != nil {
 		logger.Log.Error("failed to export log line", "error", err, "job_key", w.jobKey)
 	}
+}
+
+func (w *logCaptureWriter) metadata() map[string]string {
+	metadata := map[string]string{"job": w.jobKey, "stream": w.streamName}
+	if w.executionID != "" {
+		metadata["execution"] = w.executionID
+	}
+	return metadata
 }
