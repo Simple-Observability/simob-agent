@@ -1,13 +1,12 @@
 package main
 
 import (
-	"syscall"
-
 	"agent/cmd"
+	"agent/internal/bootstrap"
 )
 
 func main() {
-	syscall.Umask(0007)
+	bootstrap.SetUmask()
 
 	cmd.Execute()
 }
