@@ -4,9 +4,9 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
+	"sort"
 )
 
-// Metric represents a type of measurement collected by a metric collector.
 type Metric struct {
 	Name   string            `json:"name"`
 	Type   string            `json:"type"`
@@ -25,8 +25,27 @@ type CollectionConfig struct {
 	LogSources []LogSource `json:"log_sources"`
 }
 
-func (c *CollectionConfig) Hash() (string, error) {
-	data, err := json.Marshal(c)
+func (c CollectionConfig) Hash() (string, error) {
+	// Copy to avoid mutating objects
+	metricsCopy := make([]Metric, len(c.Metrics))
+	copy(metricsCopy, c.Metrics)
+	logSourcesCopy := make([]LogSource, len(c.LogSources))
+	copy(logSourcesCopy, c.LogSources)
+
+	// Normalize
+	sort.Slice(metricsCopy, func(i, j int) bool {
+		bI, _ := json.Marshal(metricsCopy[i])
+		bJ, _ := json.Marshal(metricsCopy[j])
+		return string(bI) < string(bJ)
+	})
+	sort.Slice(logSourcesCopy, func(i, j int) bool {
+		bI, _ := json.Marshal(logSourcesCopy[i])
+		bJ, _ := json.Marshal(logSourcesCopy[j])
+		return string(bI) < string(bJ)
+	})
+	normalized := CollectionConfig{Metrics: metricsCopy, LogSources: logSourcesCopy}
+
+	data, err := json.Marshal(normalized)
 	if err != nil {
 		return "", err
 	}

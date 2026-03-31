@@ -82,7 +82,7 @@ func (e *Exporter) ExportMetric(metrics []MetricPayload) error {
 	}
 	logger.Log.Debug("Appended metrics to spool", "count", len(metrics), "failed", failed)
 	if failed > 0 {
-		return fmt.Errorf("failed to append %d out of %d metrics", failed, len(metrics))
+		return fmt.Errorf("failed to append %d out of %d payloads", failed, len(metrics))
 	}
 	return nil
 }
@@ -97,9 +97,9 @@ func (e *Exporter) ExportLog(logs []LogPayload) error {
 			logger.Log.Error("failed to append log to spool", "error", err)
 		}
 	}
-	logger.Log.Debug("Appended metrics to spool", "count", len(logs), "failed", failed)
+	logger.Log.Debug("Appended logs to spool", "count", len(logs), "failed", failed)
 	if failed > 0 {
-		return fmt.Errorf("failed to append %d out of %d metrics", failed, len(logs))
+		return fmt.Errorf("failed to append %d out of %d payloads", failed, len(logs))
 	}
 	return nil
 }
