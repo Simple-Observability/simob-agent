@@ -85,10 +85,10 @@ func (q *jsonlQueue) PopBatch(limit int) ([][]byte, bool, error) {
 	if err != nil {
 		return nil, false, fmt.Errorf("open queue file %s: %w", q.name, err)
 	}
-	defer source.Close()
 
 	temp, err := os.OpenFile(q.tempPath, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0o660)
 	if err != nil {
+		_ = source.Close()
 		return nil, false, fmt.Errorf("open temp queue file %s: %w", q.name, err)
 	}
 
@@ -112,7 +112,8 @@ func (q *jsonlQueue) PopBatch(limit int) ([][]byte, bool, error) {
 			} else {
 				written, writeErr := temp.Write(append(line, '\n'))
 				if writeErr != nil {
-					temp.Close()
+					_ = temp.Close()
+					_ = source.Close()
 					return nil, false, fmt.Errorf("rewrite queue %s: %w", q.name, writeErr)
 				}
 				leftoverBytes += int64(written)
@@ -123,13 +124,18 @@ func (q *jsonlQueue) PopBatch(limit int) ([][]byte, bool, error) {
 			break
 		}
 		if err != nil {
-			temp.Close()
+			_ = temp.Close()
+			_ = source.Close()
 			return nil, false, fmt.Errorf("read queue %s: %w", q.name, err)
 		}
 	}
 
 	if err := temp.Close(); err != nil {
+		_ = source.Close()
 		return nil, false, fmt.Errorf("close temp queue %s: %w", q.name, err)
+	}
+	if err := source.Close(); err != nil {
+		return nil, false, fmt.Errorf("close queue file %s: %w", q.name, err)
 	}
 
 	if err := os.Remove(q.path); err != nil && !errors.Is(err, os.ErrNotExist) {
