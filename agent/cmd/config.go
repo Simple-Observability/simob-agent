@@ -52,7 +52,7 @@ func runConfig(args []string) {
 		if err := setConfigValue(key, value); err != nil {
 			fmt.Printf("Error setting %s: %v\n", key, err)
 		} else {
-			fmt.Printf("Set %s = %s\n", key, value)
+			fmt.Printf("Set new value for %s\n", key)
 		}
 	}
 }

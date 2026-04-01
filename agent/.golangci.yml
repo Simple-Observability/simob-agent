@@ -1,0 +1,12 @@
+version: "2"
+
+run:
+  tests: false
+
+linters:
+  exclusions:
+    generated: lax
+    rules:
+      - source: '^\s*defer .*\.Close\(\)$'
+        linters:
+          - errcheck

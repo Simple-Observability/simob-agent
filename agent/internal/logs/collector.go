@@ -89,7 +89,6 @@ func StartCollection(
 	}
 	close(logsChan)
 	processingWg.Wait()
-	exp.Close()
 }
 
 func DiscoverAvailableLogSources(collectors []LogCollector) []collection.LogSource {

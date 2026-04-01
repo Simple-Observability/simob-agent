@@ -98,35 +98,11 @@ You can interact with it using the following commands:
 
 | Command             | Description                                                                                                                 |
 |---------------------|-----------------------------------------------------------------------------------------------------------------------------|
-| **`simob init`**    | Initializes the agent by discovering available metrics and log sources, and collecting basic system info.                   |
 | **`simob start`**   | Starts the collection service manually. This command is used internally by `systemd`. You generally don’t need to run this. |
 | **`simob status`**  | Checks if the agent is currently running.                                                                                   |
 | **`simob update`**  | Checks for and installs the latest version of the agent binary.                                                             |
 | **`simob version`** | Prints the currently installed agent version.                                                                               |
 | **`simob config`**  | Outputs the current resolved configuration.                                                                                 |
-
-## Collected Data
-
-The `simob` agent automatically discovers and collects metrics and logs from a wide range
-of sources
-
-### Metrics
-
-| Category    | Description                                                             |
-|-------------|-------------------------------------------------------------------------|
-| **CPU**     | Tracks per-core and total CPU utilization, load, and idle time.         |
-| **Memory**  | Monitors total, used, and available system memory.                      |
-| **Disk**    | Reports disk usage, free space, and read/write activity.                |
-| **Network** | Measures incoming/outgoing traffic, packet counts, and errors.          |
-| **NGINX**   | Collects active connections and request rates from the status endpoint. |
-
-### Log Sources
-
-| Source              | Description                                  |
-|---------------------|----------------------------------------------|
-| **Apache**          | Collects access logs.                        |
-| **NGINX**           | Collects NGINX logs.                         |
-| **Systemd Journal** | Collects system logs from services and units |
 
 ## Documentation
 For more detailed information, including advanced configuration and troubleshooting,

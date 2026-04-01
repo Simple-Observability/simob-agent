@@ -3,6 +3,7 @@ package manager
 import (
 	"context"
 	"os"
+	"sync"
 	"time"
 
 	"agent/internal/api"
@@ -15,13 +16,15 @@ type ConfigWatcher struct {
 	client      *api.Client
 	initialHash string
 	reloadCh    chan<- bool
+	wg          *sync.WaitGroup
 }
 
 // NewConfigWatcher creates a new instance of the ConfigWatcher.
-func NewConfigWatcher(client *api.Client, reloadCh chan<- bool) *ConfigWatcher {
+func NewConfigWatcher(client *api.Client, reloadCh chan<- bool, wg *sync.WaitGroup) *ConfigWatcher {
 	return &ConfigWatcher{
 		client:   client,
 		reloadCh: reloadCh,
+		wg:       wg,
 	}
 }
 
@@ -34,12 +37,15 @@ func (r *ConfigWatcher) Start(ctx context.Context, initialCfg *collection.Collec
 		os.Exit(1)
 	}
 	r.initialHash = hash
+	logger.Log.Debug("Saved initial config hash", "hash", hash)
 
 	go r.run(ctx, initialCfg)
 }
 
 // Run is the main loop for checking config changes with dynamic intervals.
 func (r *ConfigWatcher) run(ctx context.Context, initialCfg *collection.CollectionConfig) {
+	defer r.wg.Done()
+
 	currentTickDuration := determineTickDuration(initialCfg)
 
 	// Create the initial ticker
@@ -104,8 +110,10 @@ func (r *ConfigWatcher) checkConfigForChange() *collection.CollectionConfig {
 		return newCfg
 	}
 
+	logger.Log.Debug("Comparing initial vs new config hash", "initial", r.initialHash, "new", newHash)
 	if newHash != r.initialHash {
 		logger.Log.Info("Configuration has changed. Triggering reload.")
+		r.initialHash = newHash
 		select {
 		case r.reloadCh <- true:
 		default:

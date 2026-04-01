@@ -69,13 +69,16 @@ func AcquireLock() error {
 }
 
 // ReleaseLock removes the PID file.
-func ReleaseLock() error {
+func ReleaseLock() {
 	pidFilepath, err := pidFilePath()
 	if err != nil {
-		return fmt.Errorf("can't release lock: %w", err)
+		logger.Log.Error("could not resolve pid path for lock release", "error", err)
+		return
 	}
 	err = os.Remove(pidFilepath)
-	return err
+	if err != nil && !os.IsNotExist(err) {
+		logger.Log.Warn("failed to remove pid file during cleanup", "path", pidFilepath, "error", err)
+	}
 }
 
 // IsLockAcquired checks if a valid lock is currently held by another process.

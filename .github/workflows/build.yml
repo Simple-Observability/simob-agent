@@ -14,14 +14,13 @@ jobs:
     runs-on: ubuntu-latest
     continue-on-error: true
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v4
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
         with:
-          go-version: stable
-      - name: Install dependencies
-        run: sudo apt update && sudo apt install -y libsystemd-dev
+          go-version-file: ./agent/go.mod
+          cache-dependency-path: ./agent/go.sum
       - name: golangci-lint
-        uses: golangci/golangci-lint-action@v8
+        uses: golangci/golangci-lint-action@v9
         with:
           version: v2.5
           working-directory: agent
@@ -33,13 +32,11 @@ jobs:
     name: Unit Tests
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v4
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
         with:
-          go-version: '1.24'
+          go-version-file: ./agent/go.mod
           cache-dependency-path: ./agent/go.sum
-      - name: Install dependencies
-        run: sudo apt update && sudo apt install -y libsystemd-dev
       - name: Run unit tests
         run: |
           go test -v -coverprofile=coverage.txt ./...
@@ -67,12 +64,12 @@ jobs:
 
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@v6
 
     - name: Set up Go
-      uses: actions/setup-go@v4
+      uses: actions/setup-go@v6
       with:
-        go-version: '1.24'
+        go-version-file: ./agent/go.mod
         cache-dependency-path: ./agent/go.sum
 
     - name: Set Environment Variables
@@ -83,13 +80,6 @@ jobs:
         echo "BINARY_NAME=simob-${{ matrix.os }}-${{ matrix.arch }}${EXT}" >> $GITHUB_ENV
         echo "VERSION=${{ github.ref_name }}" >> $GITHUB_ENV
         echo "Go version used: $(go version)"
-
-    - name: Install dependencies (Linux)
-      if: runner.os == 'linux'
-      run: |
-        sudo apt update
-        sudo apt install -y libsystemd-dev
-      working-directory: ./agent
 
     - name: Download Go Mods
       run: go mod download
@@ -117,7 +107,7 @@ jobs:
       working-directory: ./agent
 
     - name: Upload artifact (${{ matrix.os }} ${{ matrix.arch }})
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v6
       with:
         name: preview-${{ matrix.os }}-${{ matrix.arch }}
         path: |
@@ -142,7 +132,7 @@ jobs:
 
     steps:
     - name: Download agent artifact
-      uses: actions/download-artifact@v4
+      uses: actions/download-artifact@v7
       with:
         name: preview-${{ matrix.os }}-${{ matrix.arch }}
 
@@ -174,15 +164,15 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Install Python 3
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: '3.x'
 
       - name: Download agent artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           name: preview-linux-amd64
 
@@ -209,7 +199,7 @@ jobs:
 
     steps:
     - name: Download agent artifact
-      uses: actions/download-artifact@v4
+      uses: actions/download-artifact@v7
       with:
         name: preview-windows-amd64
 
@@ -234,7 +224,7 @@ jobs:
 
     steps:
     - name: Download all agent artifacts
-      uses: actions/download-artifact@v4
+      uses: actions/download-artifact@v7
       with:
         path: artifacts
 
@@ -247,7 +237,7 @@ jobs:
 
     - name: Create GitHub Release
       if: github.event_name == 'push' && github.ref_type == 'tag'
-      uses: softprops/action-gh-release@v1
+      uses: softprops/action-gh-release@v2
       with:
         tag_name: ${{ github.ref_name }}
         name: Release ${{ github.ref_name }}
