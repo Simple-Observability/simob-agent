@@ -1,103 +1,154 @@
 package apache
 
 import (
+	"fmt"
+	"io"
+	"log/slog"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+
+	"agent/internal/collection"
+	"agent/internal/logger"
+	"agent/internal/metrics"
 )
 
-type mockApachePS struct {
-	body string
-	err  error
+func init() {
+	logger.Log = slog.New(slog.NewTextHandler(io.Discard, nil))
 }
 
-func (m *mockApachePS) GetStatusPageBody(url string) (string, error) {
-	return m.body, m.err
+type mockPS struct {
+	mock.Mock
 }
 
-func TestApacheCollector_CollectAll(t *testing.T) {
-	body := `localhost
-ServerVersion: Apache/2.4.58 (Unix)
-ServerMPM: event
-Server Built: Oct 19 2023 00:00:00
-CurrentTime: Thursday, 26-OCt-2023 15:30:20 UTC
-RestartTime: Thursday, 26-OCt-2023 15:30:10 UTC
-ParentServerConfigGeneration: 1
-ParentServerMPMGeneration: 0
-ServerUptimeSeconds: 10
-ServerUptime: 10 seconds
-Load1: 0.05
-Load5: 0.10
-Load15: 0.15
-Total Accesses: 100
-Total kBytes: 50
-Total Duration: 0
-Uptime: 10
-ReqPerSec: 10
-BytesPerSec: 5120
-BytesPerReq: 512
-BusyWorkers: 2
-IdleWorkers: 8
-Scoreboard: _W_R_.......`
+func (m *mockPS) GetStatusPageBody(url string) (string, error) {
+	args := m.Called(url)
+	return args.String(0), args.Error(1)
+}
 
-	c := NewApacheCollector()
-	c.ps = &mockApachePS{body: body}
+const apacheStatusBody = `Total Accesses: 129811861
+Total kBytes: 5213701865
+CPULoad: 6.51929
+Uptime: 941553
+ReqPerSec: 137.87
+BytesPerSec: 5670240
+BytesPerReq: 41127.4
+BusyWorkers: 270
+IdleWorkers: 630
+ConnsTotal: 1451
+ConnsAsyncWriting: 32
+ConnsAsyncKeepAlive: 945
+ConnsAsyncClosing: 205
+Scoreboard: WW_____W_RW_R_W__RRR____WR_W___WW________W_WW_W_____R__R_WR__WRWR_RRRW___R_RWW__WWWRW__R_RW___RR_RW_R__W__WR_WWW______WWR__R___R_WR_W___RW______RR________________W______R__RR______W________________R____R__________________________RW_W____R_____W_R_________________R____RR__W___R_R____RW______R____W______W_W_R_R______R__R_R__________R____W_______WW____W____RR__W_____W_R_______W__________W___W____________W_______WRR_R_W____W_____R____W_WW_R____RRW__W............................................................................................................................................................................................................................................................................................................WRRWR____WR__RR_R___RWR_________W_R____RWRRR____R_R__RW_R___WWW_RW__WR_RRR____W___R____WW_R__R___RR_W_W_RRRRWR__RRWR__RRW_W_RRRW_R_RR_W__RR_RWRR_R__R___RR_RR______R__RR____R_____W_R_R_R__R__R__________W____WW_R___R_R___R_________RR__RR____RWWWW___W_R________R_R____R_W___W___R___W_WRRWW_______R__W_RW_______R________RR__R________W_______________________W_W______________RW_________WR__R___R__R_______________WR_R_________W___RW_____R____________W____......................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................`
 
-	// We don't filter in CollectAll, we get all values
-	datapoints, err := c.CollectAll()
-	if err != nil {
-		t.Fatalf("expected no error, got %v", err)
+func TestApacheCollector(t *testing.T) {
+	var mps mockPS
+	defer mps.AssertExpectations(t)
+
+	mps.On("GetStatusPageBody", mock.Anything).Return(apacheStatusBody, nil).Once()
+
+	c := &ApacheCollector{
+		ps:  &mps,
+		url: "http://localhost/server-status?auto",
 	}
 
-	if len(datapoints) == 0 {
-		t.Fatalf("expected datapoints, got 0")
-	}
+	dps, err := c.CollectAll()
+	require.NoError(t, err)
 
-	expectedMetrics := map[string]float64{
-		"apache_requests_total":                100,
-		"apache_requests_rate":                 0,
-		"apache_bytes_total":                   50 * 1024,
-		"apache_bytes_bps":                     0,
-		"apache_uptime_seconds":                10,
-		"apache_workers_busy_total":            2,
-		"apache_workers_idle_total":            8,
-		"apache_scoreboard_waiting_total":      3,
-		"apache_scoreboard_sending_total":      1,
-		"apache_scoreboard_reading_total":      1,
-		"apache_scoreboard_open_total":         7,
-		"apache_scoreboard_starting_total":     0,
-		"apache_scoreboard_keepalive_total":    0,
-		"apache_scoreboard_dnslookup_total":    0,
-		"apache_scoreboard_closing_total":      0,
-		"apache_scoreboard_logging_total":      0,
-		"apache_scoreboard_finishing_total":    0,
-		"apache_scoreboard_idle_cleanup_total": 0,
-	}
-
-	require.Len(t, datapoints, len(expectedMetrics))
-
-	for _, dp := range datapoints {
-		expected, ok := expectedMetrics[dp.Name]
-		require.True(t, ok, "unexpected metric %s", dp.Name)
-		assert.Equal(t, expected, dp.Value, "metric %s value", dp.Name)
-		assert.NotZero(t, dp.Timestamp, "metric %s timestamp", dp.Name)
-	}
+	assert.Len(t, dps, 10)
+	assertContainsMetric(t, dps, "apache_requests_total", 129811861.0)
+	assertContainsMetric(t, dps, "apache_requests_rate", 137.87)
+	assertContainsMetric(t, dps, "apache_bytes_total", 5213701865.0*1024.0)
+	assertContainsMetric(t, dps, "apache_bytes_bps", 5670240.0)
+	assertContainsMetric(t, dps, "apache_workers_busy_total", 270.0)
+	assertContainsMetric(t, dps, "apache_workers_idle_total", 630.0)
+	assertContainsMetric(t, dps, "apache_connections_total", 1451.0)
+	assertContainsMetric(t, dps, "apache_connections_writing_total", 32.0)
+	assertContainsMetric(t, dps, "apache_connections_keepalive_total", 945.0)
+	assertContainsMetric(t, dps, "apache_connections_closing_total", 205.0)
 }
 
 func TestApacheCollector_Discover(t *testing.T) {
-	c := NewApacheCollector()
-	c.ps = &mockApachePS{body: "Total Accesses: 0"}
+	var mps mockPS
+	mps.On("GetStatusPageBody", mock.Anything).Return(apacheStatusBody, nil).Once()
+
+	c := &ApacheCollector{
+		ps:  &mps,
+		url: "http://localhost/server-status?auto",
+	}
 
 	discovered, err := c.Discover()
 	require.NoError(t, err)
-	require.Len(t, discovered, 18)
+	require.Len(t, discovered, 10)
 
-	// Verify all returned metrics have type "gauge" and the correct units
-	for _, d := range discovered {
-		assert.Equal(t, "gauge", d.Type, "metric type for %s", d.Name)
-		if d.Name == "apache_uptime_seconds" {
-			assert.Equal(t, "s", d.Unit, "expected unit s for %s", d.Name)
+	assert.Equal(t, "apache_requests_total", discovered[0].Name)
+	assert.Equal(t, "apache_requests_rate", discovered[1].Name)
+	assert.Equal(t, "apache_bytes_total", discovered[2].Name)
+	assert.Equal(t, "apache_bytes_bps", discovered[3].Name)
+	assert.Equal(t, "apache_workers_busy_total", discovered[4].Name)
+	assert.Equal(t, "apache_workers_idle_total", discovered[5].Name)
+	assert.Equal(t, "apache_connections_total", discovered[6].Name)
+	assert.Equal(t, "apache_connections_writing_total", discovered[7].Name)
+	assert.Equal(t, "apache_connections_keepalive_total", discovered[8].Name)
+	assert.Equal(t, "apache_connections_closing_total", discovered[9].Name)
+}
+
+func TestApacheCollector_Errors(t *testing.T) {
+	t.Run("GetBodyError", func(t *testing.T) {
+		var mps mockPS
+		mps.On("GetStatusPageBody", mock.Anything).Return("", fmt.Errorf("http error")).Once()
+
+		c := &ApacheCollector{ps: &mps}
+		dps, err := c.CollectAll()
+		require.NoError(t, err)
+		assert.Nil(t, dps)
+	})
+
+	t.Run("ParseError", func(t *testing.T) {
+		var mps mockPS
+		mps.On("GetStatusPageBody", mock.Anything).Return("invalid body", nil).Once()
+
+		c := &ApacheCollector{ps: &mps}
+		dps, err := c.CollectAll()
+		require.NoError(t, err)
+		t.Logf("dps=%+v", dps)
+	})
+}
+
+func TestApacheCollector_Filtering(t *testing.T) {
+	var mps mockPS
+	mps.On("GetStatusPageBody", mock.Anything).Return(apacheStatusBody, nil).Once()
+
+	c := &ApacheCollector{
+		ps:  &mps,
+		url: "http://localhost/server-status?auto",
+	}
+	c.SetIncludedMetrics([]collection.Metric{
+		{Name: "apache_connections_keepalive_total"},
+		{Name: "apache_requests_total"},
+		{Name: "apache_connections_total"},
+	})
+
+	dps, err := c.Collect()
+	require.NoError(t, err)
+	require.Len(t, dps, 3)
+	assertContainsMetric(t, dps, "apache_connections_keepalive_total", 945.0)
+	assertContainsMetric(t, dps, "apache_requests_total", 129811861.0)
+	assertContainsMetric(t, dps, "apache_connections_total", 1451.0)
+}
+
+func assertContainsMetric(t *testing.T, dps []metrics.DataPoint, name string, value float64) {
+	for _, dp := range dps {
+		if dp.Name == name {
+			assert.Equal(t, value, dp.Value, "Metric %s", name)
+			return
 		}
 	}
+	var names []string
+	for _, dp := range dps {
+		names = append(names, fmt.Sprintf("%s=%v", dp.Name, dp.Value))
+	}
+	assert.Failf(t, "Metric not found", "Could not find metric %q. Got %v", name, names)
 }

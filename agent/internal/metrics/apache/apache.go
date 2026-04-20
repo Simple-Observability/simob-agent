@@ -38,9 +38,8 @@ func (s *systemPS) GetStatusPageBody(url string) (string, error) {
 type ApacheCollector struct {
 	metrics.BaseCollector
 
-	ps        ApachePS
-	url       string
-	lastStats *apacheStats
+	ps  ApachePS
+	url string
 }
 
 func NewApacheCollector() *ApacheCollector {
@@ -56,132 +55,63 @@ func (c *ApacheCollector) Name() string {
 
 // apacheStats is an internal type used to store the result of the server-status parsing
 type apacheStats struct {
-	Ts               int64
-	AccessesTotal    float64
-	BytesTotal       float64
-	UptimeSeconds    float64
-	WorkersBusy      float64
-	WorkersIdle      float64
-	ScboardWaiting   float64
-	ScboardStarting  float64
-	ScboardReading   float64
-	ScboardSending   float64
-	ScboardKeepalive float64
-	ScboardDnslookup float64
-	ScboardClosing   float64
-	ScboardLogging   float64
-	ScboardFinishing float64
-	ScboardIdle      float64
-	ScboardOpen      float64
+	Timestamp             int64
+	RequestsTotal         *float64
+	RequestsRate          *float64
+	BytesTotal            *float64
+	BytesPerSecond        *float64
+	WorkersBusy           *float64
+	WorkersIdle           *float64
+	ConnectionsTotal      *float64
+	ConnectionsWriting    *float64
+	ConnectionsKeepAlive  *float64
+	ConnectionsClosing    *float64
 }
 
 // apacheMetrics list the available metrics inside the apache package
 var apacheMetrics = []struct {
 	name   string
-	unit   string
-	getVal func(current, previous *apacheStats) float64
+	getVal func(current *apacheStats) *float64
 }{
 	{
-		"apache_requests_total", "no",
-		func(current, previous *apacheStats) float64 { return current.AccessesTotal },
+		"apache_requests_total",
+		func(current *apacheStats) *float64 { return current.RequestsTotal },
 	},
 	{
-		"apache_requests_rate", "rate",
-		func(current, previous *apacheStats) float64 {
-			if previous == nil {
-				return 0
-			}
-			deltaT := float64(current.Ts - previous.Ts)
-			if deltaT == 0 {
-				return 0
-			}
-			var deltaReq float64
-			if previous.AccessesTotal > current.AccessesTotal {
-				deltaReq = float64(current.AccessesTotal)
-			} else {
-				deltaReq = float64(current.AccessesTotal - previous.AccessesTotal)
-			}
-			return deltaReq / deltaT * 1000
-		},
+		"apache_requests_rate",
+		func(current *apacheStats) *float64 { return current.RequestsRate },
 	},
 	{
-		"apache_bytes_total", "bytes",
-		func(current, previous *apacheStats) float64 { return current.BytesTotal },
+		"apache_bytes_total",
+		func(current *apacheStats) *float64 { return current.BytesTotal },
 	},
 	{
-		"apache_bytes_bps", "bps",
-		func(current, previous *apacheStats) float64 {
-			if previous == nil {
-				return 0
-			}
-			deltaT := float64(current.Ts - previous.Ts)
-			if deltaT == 0 {
-				return 0
-			}
-			var deltaBytes float64
-			if previous.BytesTotal > current.BytesTotal {
-				deltaBytes = float64(current.BytesTotal)
-			} else {
-				deltaBytes = float64(current.BytesTotal - previous.BytesTotal)
-			}
-			return deltaBytes / deltaT * 1000
-		},
+		"apache_bytes_bps",
+		func(current *apacheStats) *float64 { return current.BytesPerSecond },
 	},
 	{
-		"apache_uptime_seconds", "s",
-		func(current, previous *apacheStats) float64 { return current.UptimeSeconds },
+		"apache_workers_busy_total",
+		func(current *apacheStats) *float64 { return current.WorkersBusy },
 	},
 	{
-		"apache_workers_busy_total", "no",
-		func(current, previous *apacheStats) float64 { return current.WorkersBusy },
+		"apache_workers_idle_total",
+		func(current *apacheStats) *float64 { return current.WorkersIdle },
 	},
 	{
-		"apache_workers_idle_total", "no",
-		func(current, previous *apacheStats) float64 { return current.WorkersIdle },
+		"apache_connections_total",
+		func(current *apacheStats) *float64 { return current.ConnectionsTotal },
 	},
 	{
-		"apache_scoreboard_waiting_total", "no",
-		func(current, previous *apacheStats) float64 { return current.ScboardWaiting },
+		"apache_connections_writing_total",
+		func(current *apacheStats) *float64 { return current.ConnectionsWriting },
 	},
 	{
-		"apache_scoreboard_starting_total", "no",
-		func(current, previous *apacheStats) float64 { return current.ScboardStarting },
+		"apache_connections_keepalive_total",
+		func(current *apacheStats) *float64 { return current.ConnectionsKeepAlive },
 	},
 	{
-		"apache_scoreboard_reading_total", "no",
-		func(current, previous *apacheStats) float64 { return current.ScboardReading },
-	},
-	{
-		"apache_scoreboard_sending_total", "no",
-		func(current, previous *apacheStats) float64 { return current.ScboardSending },
-	},
-	{
-		"apache_scoreboard_keepalive_total", "no",
-		func(current, previous *apacheStats) float64 { return current.ScboardKeepalive },
-	},
-	{
-		"apache_scoreboard_dnslookup_total", "no",
-		func(current, previous *apacheStats) float64 { return current.ScboardDnslookup },
-	},
-	{
-		"apache_scoreboard_closing_total", "no",
-		func(current, previous *apacheStats) float64 { return current.ScboardClosing },
-	},
-	{
-		"apache_scoreboard_logging_total", "no",
-		func(current, previous *apacheStats) float64 { return current.ScboardLogging },
-	},
-	{
-		"apache_scoreboard_finishing_total", "no",
-		func(current, previous *apacheStats) float64 { return current.ScboardFinishing },
-	},
-	{
-		"apache_scoreboard_idle_cleanup_total", "no",
-		func(current, previous *apacheStats) float64 { return current.ScboardIdle },
-	},
-	{
-		"apache_scoreboard_open_total", "no",
-		func(current, previous *apacheStats) float64 { return current.ScboardOpen },
+		"apache_connections_closing_total",
+		func(current *apacheStats) *float64 { return current.ConnectionsClosing },
 	},
 }
 
@@ -208,32 +138,35 @@ func (c *ApacheCollector) CollectAll() ([]metrics.DataPoint, error) {
 
 	var results []metrics.DataPoint
 	for _, m := range apacheMetrics {
-		val := m.getVal(stats, c.lastStats)
+		val := m.getVal(stats)
+		if val == nil {
+			continue
+		}
 		results = append(results, metrics.DataPoint{
 			Name:      m.name,
-			Timestamp: stats.Ts,
-			Value:     val,
+			Timestamp: stats.Timestamp,
+			Value:     *val,
 			Labels:    map[string]string{},
 		})
 	}
-
-	c.lastStats = stats
 
 	return results, nil
 }
 
 func (c *ApacheCollector) Discover() ([]collection.Metric, error) {
-	_, err := c.getStatsFromStatusPage()
+	stats, err := c.getStatsFromStatusPage()
 	if err != nil {
 		return nil, nil
 	}
 
 	var discovered []collection.Metric
 	for _, m := range apacheMetrics {
+		if m.getVal(stats) == nil {
+			continue
+		}
 		discovered = append(discovered, collection.Metric{
 			Name:   m.name,
 			Type:   "gauge",
-			Unit:   m.unit,
 			Labels: map[string]string{},
 		})
 	}
@@ -251,7 +184,7 @@ func (c *ApacheCollector) getStatsFromStatusPage() (*apacheStats, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse server-status: %w", err)
 	}
-	stats.Ts = timestamp
+	stats.Timestamp = timestamp
 
 	return stats, nil
 }
@@ -259,6 +192,7 @@ func (c *ApacheCollector) getStatsFromStatusPage() (*apacheStats, error) {
 func parseServerStatus(body string) (*apacheStats, error) {
 	stats := &apacheStats{}
 	scanner := bufio.NewScanner(strings.NewReader(body))
+	foundKnownField := false
 
 	for scanner.Scan() {
 		line := scanner.Text()
@@ -269,11 +203,6 @@ func parseServerStatus(body string) (*apacheStats, error) {
 		key := strings.TrimSpace(parts[0])
 		valueStr := strings.TrimSpace(parts[1])
 
-		if key == "Scoreboard" {
-			parseScoreboard(valueStr, stats)
-			continue
-		}
-
 		val, err := strconv.ParseFloat(valueStr, 64)
 		if err != nil {
 			continue
@@ -281,46 +210,45 @@ func parseServerStatus(body string) (*apacheStats, error) {
 
 		switch key {
 		case "Total Accesses":
-			stats.AccessesTotal = val
+			stats.RequestsTotal = &val
+			foundKnownField = true
 		case "Total kBytes":
-			stats.BytesTotal = val * 1024
-		case "Uptime":
-			stats.UptimeSeconds = val
+			bytes := val * 1024
+			stats.BytesTotal = &bytes
+			foundKnownField = true
+		case "ReqPerSec":
+			stats.RequestsRate = &val
+			foundKnownField = true
+		case "BytesPerSec":
+			stats.BytesPerSecond = &val
+			foundKnownField = true
 		case "BusyWorkers":
-			stats.WorkersBusy = val
+			stats.WorkersBusy = &val
+			foundKnownField = true
 		case "IdleWorkers":
-			stats.WorkersIdle = val
+			stats.WorkersIdle = &val
+			foundKnownField = true
+		case "ConnsTotal":
+			stats.ConnectionsTotal = &val
+			foundKnownField = true
+		case "ConnsAsyncWriting":
+			stats.ConnectionsWriting = &val
+			foundKnownField = true
+		case "ConnsAsyncKeepAlive":
+			stats.ConnectionsKeepAlive = &val
+			foundKnownField = true
+		case "ConnsAsyncClosing":
+			stats.ConnectionsClosing = &val
+			foundKnownField = true
 		}
 	}
 
-	return stats, scanner.Err()
-}
-
-func parseScoreboard(data string, stats *apacheStats) {
-	for _, char := range data {
-		switch char {
-		case '_':
-			stats.ScboardWaiting++
-		case 'S':
-			stats.ScboardStarting++
-		case 'R':
-			stats.ScboardReading++
-		case 'W':
-			stats.ScboardSending++
-		case 'K':
-			stats.ScboardKeepalive++
-		case 'D':
-			stats.ScboardDnslookup++
-		case 'C':
-			stats.ScboardClosing++
-		case 'L':
-			stats.ScboardLogging++
-		case 'G':
-			stats.ScboardFinishing++
-		case 'I':
-			stats.ScboardIdle++
-		case '.':
-			stats.ScboardOpen++
-		}
+	if err := scanner.Err(); err != nil {
+		return nil, err
 	}
+	if !foundKnownField {
+		return nil, fmt.Errorf("response did not contain apache server-status fields")
+	}
+
+	return stats, nil
 }
