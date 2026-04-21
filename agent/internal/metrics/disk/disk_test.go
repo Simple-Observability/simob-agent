@@ -94,6 +94,7 @@ func TestDiskCollector(t *testing.T) {
 	c := &DiskCollector{
 		ps:        &mps,
 		lastStats: make(map[string]disk.IOCountersStat),
+		now:       fixedTimes(1000, 2000),
 	}
 
 	// First collection (initializes lastStats)
@@ -105,9 +106,6 @@ func TestDiskCollector(t *testing.T) {
 	assertContainsMetric(t, dps, "disk_used_ratio", 0.6, labels)
 	// IO metrics should NOT be present in first run as deltaT/lastStats are not ready
 	assertNoMetric(t, dps, "disk_read_rate", labels)
-
-	// Update lastTime to simulate time passing
-	c.lastTime = c.lastTime - 1000 // 1 second ago
 
 	// Second collection
 	dps, err = c.CollectAll()
@@ -130,8 +128,8 @@ func TestDiskCollector_UniquePartitions(t *testing.T) {
 	partitions := []disk.PartitionStat{
 		{Device: "/dev/sda1", Mountpoint: "/", Opts: []string{"rw"}},
 		{Device: "/dev/sda1", Mountpoint: "/mnt/bind", Opts: []string{"rw", "bind"}}, // Bind mount, skip
-		{Device: "/dev/sda1", Mountpoint: "/other", Opts: []string{"rw"}},           // Same device, skip
-		{Device: "/dev/sdb1", Mountpoint: "/data", Opts: []string{"rw"}},            // New device, keep
+		{Device: "/dev/sda1", Mountpoint: "/other", Opts: []string{"rw"}},            // Same device, skip
+		{Device: "/dev/sdb1", Mountpoint: "/data", Opts: []string{"rw"}},             // New device, keep
 	}
 
 	mps.On("Partitions", false).Return(partitions, nil).Once()
@@ -207,4 +205,16 @@ func labelsEqual(a, b map[string]string) bool {
 		}
 	}
 	return true
+}
+
+func fixedTimes(times ...int64) func() int64 {
+	index := 0
+	return func() int64 {
+		if index >= len(times) {
+			return times[len(times)-1]
+		}
+		t := times[index]
+		index++
+		return t
+	}
 }
