@@ -40,12 +40,14 @@ type DiskCollector struct {
 	ps        DiskPS
 	lastStats map[string]disk.IOCountersStat
 	lastTime  int64
+	now       func() int64
 }
 
 func NewDiskCollector() *DiskCollector {
 	return &DiskCollector{
 		ps:        &systemPS{},
 		lastStats: make(map[string]disk.IOCountersStat),
+		now:       func() int64 { return time.Now().UnixMilli() },
 	}
 }
 
@@ -185,7 +187,11 @@ func (c *DiskCollector) Collect() ([]metrics.DataPoint, error) {
 }
 
 func (c *DiskCollector) CollectAll() ([]metrics.DataPoint, error) {
-	timestamp := time.Now().UnixMilli()
+	now := c.now
+	if now == nil {
+		now = func() int64 { return time.Now().UnixMilli() }
+	}
+	timestamp := now()
 
 	partitions, err := c.getUniquePrimaryPartitions()
 	if err != nil {
