@@ -19,7 +19,7 @@ func TestExporter_ExportMetric(t *testing.T) {
 	require.NoError(t, err)
 	defer os.RemoveAll(tempDir)
 
-	s, err := newSpool(withDirectory(tempDir), withSyncEvery(1))
+	s, err := newSpool(withDirectory(tempDir))
 	require.NoError(t, err)
 	defer s.close()
 
@@ -48,7 +48,7 @@ func TestExporter_ExportLog(t *testing.T) {
 	require.NoError(t, err)
 	defer os.RemoveAll(tempDir)
 
-	s, err := newSpool(withDirectory(tempDir), withSyncEvery(1))
+	s, err := newSpool(withDirectory(tempDir))
 	require.NoError(t, err)
 	defer s.close()
 
@@ -77,7 +77,7 @@ func TestNewExporterWithoutFlusher(t *testing.T) {
 	require.NoError(t, err)
 	defer os.RemoveAll(tempDir)
 
-	e, err := newExporter(nil, false, false, withDirectory(tempDir), withSyncEvery(1))
+	e, err := newExporter(nil, false, false, withDirectory(tempDir))
 	require.NoError(t, err)
 	require.NotNil(t, e)
 	assert.Nil(t, e.flusher)

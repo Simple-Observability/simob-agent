@@ -19,8 +19,11 @@ jobs:
         with:
           go-version-file: ./agent/go.mod
           cache-dependency-path: ./agent/go.sum
+<<<<<<< HEAD
       - name: Install dependencies
         run: sudo apt update && sudo apt install -y libsystemd-dev
+=======
+>>>>>>> dev
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v9
         with:
@@ -39,8 +42,6 @@ jobs:
         with:
           go-version-file: ./agent/go.mod
           cache-dependency-path: ./agent/go.sum
-      - name: Install dependencies
-        run: sudo apt update && sudo apt install -y libsystemd-dev
       - name: Run unit tests
         run: |
           go test -v -coverprofile=coverage.txt $(go list ./... | grep -v '^github.com/nsqio/go-diskqueue$')
@@ -84,13 +85,6 @@ jobs:
         echo "BINARY_NAME=simob-${{ matrix.os }}-${{ matrix.arch }}${EXT}" >> $GITHUB_ENV
         echo "VERSION=${{ github.ref_name }}" >> $GITHUB_ENV
         echo "Go version used: $(go version)"
-
-    - name: Install dependencies (Linux)
-      if: runner.os == 'linux'
-      run: |
-        sudo apt update
-        sudo apt install -y libsystemd-dev
-      working-directory: ./agent
 
     - name: Download Go Mods
       run: go mod download

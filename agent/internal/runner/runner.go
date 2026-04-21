@@ -1,7 +1,9 @@
 package runner
 
 import (
+	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"os/exec"
@@ -13,6 +15,10 @@ import (
 )
 
 var statusHTTPClient = &http.Client{Timeout: 10 * time.Second}
+
+type statusReportResponse struct {
+	ExecutionID string `json:"execution"`
+}
 
 func Run(jobKey string, commandArgs []string, captureOutput bool) int {
 	logger.Init(false)
@@ -49,7 +55,8 @@ func Run(jobKey string, commandArgs []string, captureOutput bool) int {
 	}()
 
 	monitorURL := fmt.Sprintf("%s/jobs/p/%s", cfg.APIUrl, jobKey)
-	reportStatus(monitorURL, "run")
+	executionID := reportStatus(monitorURL, "run")
+	logCapture.setExecutionID(executionID)
 
 	err = command.Start()
 	if err != nil {
@@ -77,22 +84,37 @@ func Run(jobKey string, commandArgs []string, captureOutput bool) int {
 	return 0
 }
 
-func reportStatus(monitorURL, state string) {
-	url := fmt.Sprintf("%s?state=%s", monitorURL, state)
+func reportStatus(monitorURL, state string) string {
+	url := fmt.Sprintf("%s?state=%s&v=1", monitorURL, state)
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		logger.Log.Error("failed to create request for status reporting", "error", err)
-		return
+		return ""
 	}
 
 	resp, err := statusHTTPClient.Do(req)
 	if err != nil {
 		logger.Log.Error("failed to report status", "error", err, "state", state)
-		return
+		return ""
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		logger.Log.Error("status reporting failed", "status_code", resp.StatusCode, "state", state)
+		return ""
 	}
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		logger.Log.Error("failed to read verbose status response", "error", err, "state", state)
+		return ""
+	}
+	if len(body) == 0 {
+		return ""
+	}
+	var payload statusReportResponse
+	if err := json.Unmarshal(body, &payload); err != nil {
+		logger.Log.Error("failed to decode verbose status response", "error", err, "state", state)
+		return ""
+	}
+	return payload.ExecutionID
 }

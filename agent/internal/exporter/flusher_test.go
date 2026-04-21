@@ -55,7 +55,7 @@ func TestFlusher_FlushOnce(t *testing.T) {
 	require.NoError(t, err)
 	defer os.RemoveAll(tempDir)
 
-	s, err := newSpool(withDirectory(tempDir), withSyncEvery(1))
+	s, err := newSpool(withDirectory(tempDir))
 	require.NoError(t, err)
 	defer s.close()
 

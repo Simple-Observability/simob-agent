@@ -3,6 +3,7 @@ package exporter
 import (
 	"os"
 	"strconv"
+	"sync"
 	"testing"
 	"time"
 
@@ -15,7 +16,7 @@ func TestSpool(t *testing.T) {
 	require.NoError(t, err)
 	defer os.RemoveAll(tempDir)
 
-	s, err := newSpool(withDirectory(tempDir), withSyncEvery(1))
+	s, err := newSpool(withDirectory(tempDir))
 	require.NoError(t, err)
 	defer s.close()
 
@@ -50,7 +51,7 @@ func TestSpoolStaleEntries(t *testing.T) {
 	require.NoError(t, err)
 	defer os.RemoveAll(tempDir)
 
-	s, err := newSpool(withDirectory(tempDir), withSyncEvery(1))
+	s, err := newSpool(withDirectory(tempDir))
 	require.NoError(t, err)
 	defer s.close()
 
@@ -78,7 +79,7 @@ func TestSpoolBatchSize(t *testing.T) {
 	require.NoError(t, err)
 	defer os.RemoveAll(tempDir)
 
-	s, err := newSpool(withDirectory(tempDir), withSyncEvery(1))
+	s, err := newSpool(withDirectory(tempDir))
 	require.NoError(t, err)
 	defer s.close()
 
@@ -89,9 +90,6 @@ func TestSpoolBatchSize(t *testing.T) {
 		err = s.append(m)
 		require.NoError(t, err)
 	}
-
-	// Wait for diskqueue to sync
-	time.Sleep(500 * time.Millisecond)
 
 	// First batch should have 100 items (maxBatchSize)
 	metrics1, hasMore1, err := s.getBatch(metricsQueueName, unmarshalMetric)
@@ -104,4 +102,57 @@ func TestSpoolBatchSize(t *testing.T) {
 	require.NoError(t, err)
 	assert.Len(t, metrics2, 50)
 	assert.False(t, hasMore2)
+}
+
+func TestSpoolMultiWriter(t *testing.T) {
+	tempDir, err := os.MkdirTemp("", "spool_multiwriter_test")
+	require.NoError(t, err)
+	defer os.RemoveAll(tempDir)
+
+	writerA, err := newSpool(withDirectory(tempDir))
+	require.NoError(t, err)
+	defer writerA.close()
+
+	writerB, err := newSpool(withDirectory(tempDir))
+	require.NoError(t, err)
+	defer writerB.close()
+
+	now := strconv.FormatInt(time.Now().UnixMilli(), 10)
+	const perWriter = 25
+
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		for i := 0; i < perWriter; i++ {
+			err := writerA.append(MetricPayload{Timestamp: now, Name: "writer_a_" + strconv.Itoa(i)})
+			require.NoError(t, err)
+		}
+	}()
+	go func() {
+		defer wg.Done()
+		for i := 0; i < perWriter; i++ {
+			err := writerB.append(MetricPayload{Timestamp: now, Name: "writer_b_" + strconv.Itoa(i)})
+			require.NoError(t, err)
+		}
+	}()
+	wg.Wait()
+
+	reader, err := newSpool(withDirectory(tempDir))
+	require.NoError(t, err)
+	defer reader.close()
+
+	metrics, hasMore, err := reader.getBatch(metricsQueueName, unmarshalMetric)
+	require.NoError(t, err)
+	assert.False(t, hasMore)
+	require.Len(t, metrics, perWriter*2)
+
+	seen := map[string]bool{}
+	for _, payload := range metrics {
+		seen[payload.(MetricPayload).Name] = true
+	}
+	for i := 0; i < perWriter; i++ {
+		assert.True(t, seen["writer_a_"+strconv.Itoa(i)])
+		assert.True(t, seen["writer_b_"+strconv.Itoa(i)])
+	}
 }
