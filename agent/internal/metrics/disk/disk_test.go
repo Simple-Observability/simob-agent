@@ -128,8 +128,8 @@ func TestDiskCollector_UniquePartitions(t *testing.T) {
 	partitions := []disk.PartitionStat{
 		{Device: "/dev/sda1", Mountpoint: "/", Opts: []string{"rw"}},
 		{Device: "/dev/sda1", Mountpoint: "/mnt/bind", Opts: []string{"rw", "bind"}}, // Bind mount, skip
-		{Device: "/dev/sda1", Mountpoint: "/other", Opts: []string{"rw"}},           // Same device, skip
-		{Device: "/dev/sdb1", Mountpoint: "/data", Opts: []string{"rw"}},            // New device, keep
+		{Device: "/dev/sda1", Mountpoint: "/other", Opts: []string{"rw"}},            // Same device, skip
+		{Device: "/dev/sdb1", Mountpoint: "/data", Opts: []string{"rw"}},             // New device, keep
 	}
 
 	mps.On("Partitions", false).Return(partitions, nil).Once()
