@@ -6,6 +6,7 @@ import (
 	"agent/internal/collection"
 	"agent/internal/logger"
 	"agent/internal/metrics"
+	"agent/internal/metrics/apache"
 	"agent/internal/metrics/cpu"
 	"agent/internal/metrics/disk"
 	"agent/internal/metrics/memory"
@@ -16,11 +17,12 @@ import (
 
 func BuildCollectors(cfg *collection.CollectionConfig) []metrics.MetricCollector {
 	collectorMap := map[string]metrics.MetricCollector{
-		"cpu":   cpu.NewCPUCollector(),
-		"mem":   memory.NewMemoryCollector(),
-		"disk":  disk.NewDiskCollector(),
-		"net":   network.NewNetworkCollector(),
-		"nginx": nginx.NewNginxCollector(),
+		"apache": apache.NewApacheCollector(),
+		"cpu":    cpu.NewCPUCollector(),
+		"disk":   disk.NewDiskCollector(),
+		"mem":    memory.NewMemoryCollector(),
+		"net":    network.NewNetworkCollector(),
+		"nginx":  nginx.NewNginxCollector(),
 	}
 
 	var allCollectors []metrics.MetricCollector

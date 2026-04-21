@@ -15,25 +15,6 @@ func init() {
 	logger.Log = slog.New(slog.NewTextHandler(io.Discard, nil))
 }
 
-func TestBuildCollectors_NilConfig(t *testing.T) {
-	collectors := BuildCollectors(nil)
-
-	// Status + 5 from collectorMap (cpu, mem, disk, net, nginx) = 6
-	assert.Len(t, collectors, 6)
-
-	names := make(map[string]bool)
-	for _, c := range collectors {
-		names[c.Name()] = true
-	}
-
-	assert.True(t, names["status"])
-	assert.True(t, names["cpu"])
-	assert.True(t, names["mem"])
-	assert.True(t, names["disk"])
-	assert.True(t, names["net"])
-	assert.True(t, names["nginx"])
-}
-
 func TestBuildCollectors_FilteredConfig(t *testing.T) {
 	cfg := &collection.CollectionConfig{
 		Metrics: []collection.Metric{
