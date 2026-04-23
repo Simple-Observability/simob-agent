@@ -222,7 +222,6 @@ func (c *CPUCollector) Discover() ([]collection.Metric, error) {
 			discovered = append(discovered, collection.Metric{
 				Name:   "cpu_" + field + "_ratio",
 				Type:   "gauge",
-				Unit:   "%",
 				Labels: map[string]string{"cpu": core.CPU},
 			})
 		}
@@ -233,7 +232,6 @@ func (c *CPUCollector) Discover() ([]collection.Metric, error) {
 		discovered = append(discovered, collection.Metric{
 			Name:   "cpu_" + field + "_ratio",
 			Type:   "gauge",
-			Unit:   "%",
 			Labels: map[string]string{"cpu": "total"},
 		})
 	}

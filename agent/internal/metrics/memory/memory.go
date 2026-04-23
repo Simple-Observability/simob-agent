@@ -43,26 +43,24 @@ func (c *MemoryCollector) Name() string {
 // memMetrics list the available metrics inside the memory package (virtual memory)
 var memMetrics = []struct {
 	name     string
-	unit     string
 	getValue func(*mem.VirtualMemoryStat) float64
 }{
-	{"mem_total_bytes", "bytes", func(vm *mem.VirtualMemoryStat) float64 { return float64(vm.Total) }},
-	{"mem_available_bytes", "bytes", func(vm *mem.VirtualMemoryStat) float64 { return float64(vm.Available) }},
-	{"mem_used_bytes", "bytes", func(vm *mem.VirtualMemoryStat) float64 { return float64(vm.Used) }},
-	{"mem_free_bytes", "bytes", func(vm *mem.VirtualMemoryStat) float64 { return float64(vm.Free) }},
-	{"mem_used_ratio", "%", func(vm *mem.VirtualMemoryStat) float64 { return vm.UsedPercent / 100 }},
+	{"mem_total_bytes", func(vm *mem.VirtualMemoryStat) float64 { return float64(vm.Total) }},
+	{"mem_available_bytes", func(vm *mem.VirtualMemoryStat) float64 { return float64(vm.Available) }},
+	{"mem_used_bytes", func(vm *mem.VirtualMemoryStat) float64 { return float64(vm.Used) }},
+	{"mem_free_bytes", func(vm *mem.VirtualMemoryStat) float64 { return float64(vm.Free) }},
+	{"mem_used_ratio", func(vm *mem.VirtualMemoryStat) float64 { return vm.UsedPercent / 100 }},
 }
 
 // swapMetrics list the available metrics inside the memory package (swap)
 var swapMetrics = []struct {
 	name     string
-	unit     string
 	getValue func(*mem.SwapMemoryStat) float64
 }{
-	{"mem_swap_total_bytes", "bytes", func(sm *mem.SwapMemoryStat) float64 { return float64(sm.Total) }},
-	{"mem_swap_used_bytes", "bytes", func(sm *mem.SwapMemoryStat) float64 { return float64(sm.Used) }},
-	{"mem_swap_free_bytes", "bytes", func(sm *mem.SwapMemoryStat) float64 { return float64(sm.Free) }},
-	{"mem_swap_used_ratio", "%", func(sm *mem.SwapMemoryStat) float64 { return sm.UsedPercent / 100 }},
+	{"mem_swap_total_bytes", func(sm *mem.SwapMemoryStat) float64 { return float64(sm.Total) }},
+	{"mem_swap_used_bytes", func(sm *mem.SwapMemoryStat) float64 { return float64(sm.Used) }},
+	{"mem_swap_free_bytes", func(sm *mem.SwapMemoryStat) float64 { return float64(sm.Free) }},
+	{"mem_swap_used_ratio", func(sm *mem.SwapMemoryStat) float64 { return sm.UsedPercent / 100 }},
 }
 
 func (c *MemoryCollector) Collect() ([]metrics.DataPoint, error) {
@@ -121,7 +119,6 @@ func (c *MemoryCollector) Discover() ([]collection.Metric, error) {
 		discovered = append(discovered, collection.Metric{
 			Name:   m.name,
 			Type:   "gauge",
-			Unit:   m.unit,
 			Labels: map[string]string{},
 		})
 	}
@@ -133,7 +130,6 @@ func (c *MemoryCollector) Discover() ([]collection.Metric, error) {
 		discovered = append(discovered, collection.Metric{
 			Name:   m.name,
 			Type:   "gauge",
-			Unit:   m.unit,
 			Labels: map[string]string{},
 		})
 	}

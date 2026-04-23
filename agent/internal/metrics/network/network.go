@@ -40,17 +40,16 @@ func (c *NetworkCollector) Name() string {
 // netMetrics list the available metrics inside the network package
 var netMetrics = []struct {
 	name       string
-	unit       string
 	getCounter func(*net.IOCountersStat) float64
 }{
-	{"net_bytes_sent_bps", "bps", func(io *net.IOCountersStat) float64 { return float64(io.BytesSent) }},
-	{"net_bytes_recv_bps", "bps", func(io *net.IOCountersStat) float64 { return float64(io.BytesRecv) }},
-	{"net_packets_sent_rate", "rate", func(io *net.IOCountersStat) float64 { return float64(io.PacketsSent) }},
-	{"net_packets_recv_rate", "rate", func(io *net.IOCountersStat) float64 { return float64(io.PacketsRecv) }},
-	{"net_errin_rate", "rate", func(io *net.IOCountersStat) float64 { return float64(io.Errin) }},
-	{"net_errout_rate", "rate", func(io *net.IOCountersStat) float64 { return float64(io.Errout) }},
-	{"net_dropin_rate", "rate", func(io *net.IOCountersStat) float64 { return float64(io.Dropin) }},
-	{"net_dropout_rate", "rate", func(io *net.IOCountersStat) float64 { return float64(io.Dropout) }},
+	{"net_bytes_sent_bps", func(io *net.IOCountersStat) float64 { return float64(io.BytesSent) }},
+	{"net_bytes_recv_bps", func(io *net.IOCountersStat) float64 { return float64(io.BytesRecv) }},
+	{"net_packets_sent_rate", func(io *net.IOCountersStat) float64 { return float64(io.PacketsSent) }},
+	{"net_packets_recv_rate", func(io *net.IOCountersStat) float64 { return float64(io.PacketsRecv) }},
+	{"net_errin_rate", func(io *net.IOCountersStat) float64 { return float64(io.Errin) }},
+	{"net_errout_rate", func(io *net.IOCountersStat) float64 { return float64(io.Errout) }},
+	{"net_dropin_rate", func(io *net.IOCountersStat) float64 { return float64(io.Dropin) }},
+	{"net_dropout_rate", func(io *net.IOCountersStat) float64 { return float64(io.Dropout) }},
 }
 
 func (c *NetworkCollector) Collect() ([]metrics.DataPoint, error) {
@@ -124,7 +123,6 @@ func (c *NetworkCollector) Discover() ([]collection.Metric, error) {
 			discovered = append(discovered, collection.Metric{
 				Name:   m.name,
 				Type:   "gauge",
-				Unit:   m.unit,
 				Labels: labels,
 			})
 		}

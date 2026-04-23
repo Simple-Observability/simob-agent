@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -32,6 +33,10 @@ var inspectMetricsCmd = &cobra.Command{
 		metricsCollectors := metricsRegistry.BuildCollectors(nil)
 		for _, c := range metricsCollectors {
 			if c.Name() == collectorName {
+				// First collection to init state
+				_, _ = c.CollectAll()
+				time.Sleep(1 * time.Second)
+
 				data, err := c.CollectAll()
 				if err != nil {
 					return fmt.Errorf("failed to collect metrics: %w", err)
