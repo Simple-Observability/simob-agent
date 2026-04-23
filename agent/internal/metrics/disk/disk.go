@@ -99,54 +99,52 @@ func (c *DiskCollector) getUniquePrimaryPartitions() ([]disk.PartitionStat, erro
 
 var diskMetrics = []struct {
 	name     string
-	unit     string
 	getValue func(*disk.UsageStat) float64
 }{
-	{"disk_total_bytes", "bytes", func(d *disk.UsageStat) float64 { return float64(d.Total) }},
-	{"disk_free_bytes", "bytes", func(d *disk.UsageStat) float64 { return float64(d.Free) }},
-	{"disk_used_bytes", "bytes", func(d *disk.UsageStat) float64 { return float64(d.Used) }},
-	{"disk_used_ratio", "%", func(d *disk.UsageStat) float64 { return d.UsedPercent / 100 }},
-	{"disk_inodes_total_total", "no", func(d *disk.UsageStat) float64 { return float64(d.InodesTotal) }},
-	{"disk_inodes_free_total", "no", func(d *disk.UsageStat) float64 { return float64(d.InodesFree) }},
-	{"disk_inodes_used_total", "no", func(d *disk.UsageStat) float64 { return float64(d.InodesUsed) }},
-	{"disk_inodes_used_ratio", "%", func(d *disk.UsageStat) float64 { return d.InodesUsedPercent / 100 }},
+	{"disk_total_bytes", func(d *disk.UsageStat) float64 { return float64(d.Total) }},
+	{"disk_free_bytes", func(d *disk.UsageStat) float64 { return float64(d.Free) }},
+	{"disk_used_bytes", func(d *disk.UsageStat) float64 { return float64(d.Used) }},
+	{"disk_used_ratio", func(d *disk.UsageStat) float64 { return d.UsedPercent / 100 }},
+	{"disk_inodes_total_total", func(d *disk.UsageStat) float64 { return float64(d.InodesTotal) }},
+	{"disk_inodes_free_total", func(d *disk.UsageStat) float64 { return float64(d.InodesFree) }},
+	{"disk_inodes_used_total", func(d *disk.UsageStat) float64 { return float64(d.InodesUsed) }},
+	{"disk_inodes_used_ratio", func(d *disk.UsageStat) float64 { return d.InodesUsedPercent / 100 }},
 }
 
 var diskIOMetrics = []struct {
 	name     string
-	unit     string
 	getValue func(current, previous *disk.IOCountersStat, deltaT float64) float64
 }{
 	{
-		"disk_read_rate", "rate",
+		"disk_read_rate",
 		func(current, previous *disk.IOCountersStat, deltaT float64) float64 {
 			delta := float64(current.ReadCount - previous.ReadCount)
 			return delta / deltaT * 1000.0
 		},
 	},
 	{
-		"disk_write_rate", "rate",
+		"disk_write_rate",
 		func(current, previous *disk.IOCountersStat, deltaT float64) float64 {
 			delta := float64(current.WriteCount - previous.WriteCount)
 			return delta / deltaT * 1000.0
 		},
 	},
 	{
-		"disk_read_bps", "bps",
+		"disk_read_bps",
 		func(current, previous *disk.IOCountersStat, deltaT float64) float64 {
 			delta := float64(current.ReadBytes - previous.ReadBytes)
 			return delta / deltaT * 1000.0
 		},
 	},
 	{
-		"disk_write_bps", "bps",
+		"disk_write_bps",
 		func(current, previous *disk.IOCountersStat, deltaT float64) float64 {
 			delta := float64(current.WriteBytes - previous.WriteBytes)
 			return delta / deltaT * 1000.0
 		},
 	},
 	{
-		"disk_busy_ratio", "%",
+		"disk_busy_ratio",
 		func(current, previous *disk.IOCountersStat, deltaT float64) float64 {
 			deltaIoTime := float64(current.IoTime - previous.IoTime)
 			ratio := deltaIoTime / deltaT
@@ -154,7 +152,7 @@ var diskIOMetrics = []struct {
 		},
 	},
 	{
-		"disk_avg_request_ms", "ms",
+		"disk_avg_request_ms",
 		func(current, previous *disk.IOCountersStat, deltaT float64) float64 {
 			deltaReadTime := float64(current.ReadTime - previous.ReadTime)
 			deltaWriteTime := float64(current.WriteTime - previous.WriteTime)
@@ -261,7 +259,6 @@ func (c *DiskCollector) Discover() ([]collection.Metric, error) {
 			discovered = append(discovered, collection.Metric{
 				Name:   m.name,
 				Type:   "gauge",
-				Unit:   m.unit,
 				Labels: diskLabels,
 			})
 		}
@@ -269,7 +266,6 @@ func (c *DiskCollector) Discover() ([]collection.Metric, error) {
 			discovered = append(discovered, collection.Metric{
 				Name:   m.name,
 				Type:   "gauge",
-				Unit:   m.unit,
 				Labels: diskLabels,
 			})
 		}

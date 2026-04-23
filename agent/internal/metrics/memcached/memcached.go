@@ -104,28 +104,26 @@ func getGauge(key string) func(current, previous *memcachedStats) float64 {
 
 var memcachedMetrics = []struct {
 	name   string
-	unit   string
 	getVal func(current, previous *memcachedStats) float64
 }{
-	{"memcached_uptime_seconds", "s", getGauge("uptime")},
-	{"memcached_connections_current_total", "no", getGauge("curr_connections")},
-	{"memcached_connections_rate", "rate", getRate("total_connections")},
-	{"memcached_items_current_total", "no", getGauge("curr_items")},
-	{"memcached_items_rate", "rate", getRate("total_items")},
-	{"memcached_get_rate", "rate", getRate("cmd_get")},
-	{"memcached_set_rate", "rate", getRate("cmd_set")},
-	{"memcached_get_hits_rate", "rate", getRate("get_hits")},
-	{"memcached_get_misses_rate", "rate", getRate("get_misses")},
-	{"memcached_delete_hits_rate", "rate", getRate("delete_hits")},
-	{"memcached_delete_misses_rate", "rate", getRate("delete_misses")},
-	{"memcached_incr_hits_rate", "rate", getRate("incr_hits")},
-	{"memcached_incr_misses_rate", "rate", getRate("incr_misses")},
-	{"memcached_decr_hits_rate", "rate", getRate("decr_hits")},
-	{"memcached_decr_misses_rate", "rate", getRate("decr_misses")},
-	{"memcached_read_bps", "bps", getRate("bytes_read")},
-	{"memcached_written_bps", "bps", getRate("bytes_written")},
-	{"memcached_limit_bytes", "bytes", getGauge("limit_maxbytes")},
-	{"memcached_used_bytes", "bytes", getGauge("bytes")},
+	{"memcached_connections_current_total", getGauge("curr_connections")},
+	{"memcached_connections_rate", getRate("total_connections")},
+	{"memcached_items_current_total", getGauge("curr_items")},
+	{"memcached_items_rate", getRate("total_items")},
+	{"memcached_get_rate", getRate("cmd_get")},
+	{"memcached_set_rate", getRate("cmd_set")},
+	{"memcached_get_hits_rate", getRate("get_hits")},
+	{"memcached_get_misses_rate", getRate("get_misses")},
+	{"memcached_delete_hits_rate", getRate("delete_hits")},
+	{"memcached_delete_misses_rate", getRate("delete_misses")},
+	{"memcached_incr_hits_rate", getRate("incr_hits")},
+	{"memcached_incr_misses_rate", getRate("incr_misses")},
+	{"memcached_decr_hits_rate", getRate("decr_hits")},
+	{"memcached_decr_misses_rate", getRate("decr_misses")},
+	{"memcached_read_bps", getRate("bytes_read")},
+	{"memcached_written_bps", getRate("bytes_written")},
+	{"memcached_limit_bytes", getGauge("limit_maxbytes")},
+	{"memcached_used_bytes", getGauge("bytes")},
 }
 
 func (c *MemcachedCollector) Collect() ([]metrics.DataPoint, error) {
@@ -176,7 +174,6 @@ func (c *MemcachedCollector) Discover() ([]collection.Metric, error) {
 		discovered = append(discovered, collection.Metric{
 			Name:   m.name,
 			Type:   "gauge",
-			Unit:   m.unit,
 			Labels: map[string]string{},
 		})
 	}
