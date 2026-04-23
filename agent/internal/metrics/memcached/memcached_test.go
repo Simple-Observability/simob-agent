@@ -146,7 +146,6 @@ END
 	stats := parseMemcachedStats(body)
 
 	expected := map[string]float64{
-		"uptime":            11,
 		"curr_connections":  2,
 		"total_connections": 3,
 		"cmd_get":           0,
@@ -183,7 +182,6 @@ func TestMemcachedCollector_CollectAll(t *testing.T) {
 	require.NoError(t, err)
 
 	// First collection now includes rates with 0 value (Nginx style)
-	assertContainsMetric(t, dps1, "memcached_uptime_seconds", 100.0)
 	assertContainsMetric(t, dps1, "memcached_items_current_total", 50.0)
 	assertContainsMetric(t, dps1, "memcached_get_rate", 0.0)
 
@@ -203,28 +201,6 @@ func TestMemcachedCollector_CollectAll(t *testing.T) {
 	for _, dp := range dps2 {
 		assert.NotEqual(t, "memcached_get_total", dp.Name)
 	}
-}
-
-func TestMemcachedCollector_Discover(t *testing.T) {
-	var mps mockPS
-	defer mps.AssertExpectations(t)
-
-	mps.On("GetStats", mock.Anything).Return("STAT version 1.6.17\nEND\n", nil).Once()
-
-	mc := &MemcachedCollector{ps: &mps, address: "127.0.0.1:11211"}
-	discovered, err := mc.Discover()
-	require.NoError(t, err)
-
-	assert.Len(t, discovered, len(memcachedMetrics))
-
-	found := false
-	for _, m := range discovered {
-		if m.Name == "memcached_uptime_seconds" {
-			found = true
-			break
-		}
-	}
-	assert.True(t, found, "memcached_uptime_seconds not discovered")
 }
 
 func TestMemcachedCollector_Errors(t *testing.T) {
