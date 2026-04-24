@@ -67,31 +67,30 @@ type nginxStats struct {
 // nginxMetrics list the available metrics inside the nginx package
 var nginxMetrics = []struct {
 	name   string
-	unit   string
 	getVal func(current, previous *nginxStats) float64
 }{
 	{
-		"nginx_connections_active_total", "no",
+		"nginx_connections_active_total",
 		func(current, previous *nginxStats) float64 { return current.Active },
 	},
 	{
-		"nginx_connections_reading_total", "no",
+		"nginx_connections_reading_total",
 		func(current, previous *nginxStats) float64 { return current.Reading },
 	},
 	{
-		"nginx_connections_writing_total", "no",
+		"nginx_connections_writing_total",
 		func(current, previous *nginxStats) float64 { return current.Writing },
 	},
 	{
-		"nginx_connections_waiting_total", "no",
+		"nginx_connections_waiting_total",
 		func(current, previous *nginxStats) float64 { return current.Waiting },
 	},
 	{
-		"nginx_requests_total", "no",
+		"nginx_requests_total",
 		func(current, previous *nginxStats) float64 { return float64(current.Requests) },
 	},
 	{
-		"nginx_requests_rate", "rate",
+		"nginx_requests_rate",
 		func(current, previous *nginxStats) float64 {
 			if previous == nil {
 				return 0
@@ -157,7 +156,6 @@ func (c *NginxCollector) Discover() ([]collection.Metric, error) {
 		discovered = append(discovered, collection.Metric{
 			Name:   m.name,
 			Type:   "gauge",
-			Unit:   m.unit,
 			Labels: map[string]string{},
 		})
 	}

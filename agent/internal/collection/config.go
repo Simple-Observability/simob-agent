@@ -11,7 +11,6 @@ type Metric struct {
 	Name   string            `json:"name"`
 	Type   string            `json:"type"`
 	Value  float64           `json:"value"`
-	Unit   string            `json:"unit"`
 	Labels map[string]string `json:"labels"`
 }
 
