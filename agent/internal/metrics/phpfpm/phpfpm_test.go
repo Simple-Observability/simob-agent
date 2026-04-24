@@ -57,14 +57,14 @@ func TestPHPFPMCollector(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, dps, len(metricDefinitions))
 
-	assertContainsMetric(t, dps, "phpfpm_listen_queue", 1)
-	assertContainsMetric(t, dps, "phpfpm_max_listen_queue", 3)
-	assertContainsMetric(t, dps, "phpfpm_listen_queue_len", 128)
-	assertContainsMetric(t, dps, "phpfpm_idle_processes", 5)
-	assertContainsMetric(t, dps, "phpfpm_active_processes", 2)
-	assertContainsMetric(t, dps, "phpfpm_total_processes", 7)
-	assertContainsMetric(t, dps, "phpfpm_max_active_processes", 4)
-	assertContainsMetric(t, dps, "phpfpm_accepted_conn_rate", 0)
+	assertContainsMetric(t, dps, "phpfpm_listen_queue_total", 1)
+	assertContainsMetric(t, dps, "phpfpm_max_listen_queue_total", 3)
+	assertContainsMetric(t, dps, "phpfpm_listen_queue_length_total", 128)
+	assertContainsMetric(t, dps, "phpfpm_idle_processes_total", 5)
+	assertContainsMetric(t, dps, "phpfpm_active_processes_total", 2)
+	assertContainsMetric(t, dps, "phpfpm_processes_total", 7)
+	assertContainsMetric(t, dps, "phpfpm_max_active_processes_total", 4)
+	assertContainsMetric(t, dps, "phpfpm_accepted_connections_rate", 0)
 	assertContainsMetric(t, dps, "phpfpm_max_children_reached_total", 1)
 	assertContainsMetric(t, dps, "phpfpm_slow_requests_rate", 0)
 
@@ -85,7 +85,7 @@ func TestPHPFPMCollector(t *testing.T) {
 	dps, err = c.CollectAll()
 	require.NoError(t, err)
 
-	assertContainsMetric(t, dps, "phpfpm_accepted_conn_rate", 30)
+	assertContainsMetric(t, dps, "phpfpm_accepted_connections_rate", 30)
 	assertContainsMetric(t, dps, "phpfpm_slow_requests_rate", 3)
 	assertContainsMetric(t, dps, "phpfpm_max_children_reached_total", 2)
 }
@@ -113,7 +113,7 @@ func TestPHPFPMCollector_CounterReset(t *testing.T) {
 	dps, err := c.CollectAll()
 	require.NoError(t, err)
 
-	assertContainsMetric(t, dps, "phpfpm_accepted_conn_rate", 20)
+	assertContainsMetric(t, dps, "phpfpm_accepted_connections_rate", 20)
 	assertContainsMetric(t, dps, "phpfpm_slow_requests_rate", 2)
 }
 
@@ -131,7 +131,7 @@ func TestPHPFPMCollector_Discover(t *testing.T) {
 	discovered, err := c.Discover()
 	require.NoError(t, err)
 	require.Len(t, discovered, len(metricDefinitions))
-	assert.Equal(t, "phpfpm_listen_queue", discovered[0].Name)
+	assert.Equal(t, "phpfpm_listen_queue_total", discovered[0].Name)
 	assert.Equal(t, "phpfpm_max_children_reached_total", discovered[8].Name)
 	assert.Equal(t, "counter", discovered[8].Type)
 }
@@ -145,7 +145,7 @@ func TestPHPFPMCollector_Filtering(t *testing.T) {
 		now:    time.Now,
 	}
 	c.SetIncludedMetrics([]collection.Metric{
-		{Name: "phpfpm_active_processes"},
+		{Name: "phpfpm_active_processes_total"},
 		{Name: "phpfpm_slow_requests_rate"},
 	})
 
@@ -157,7 +157,7 @@ func TestPHPFPMCollector_Filtering(t *testing.T) {
 	dps, err := c.Collect()
 	require.NoError(t, err)
 	require.Len(t, dps, 2)
-	assertContainsMetric(t, dps, "phpfpm_active_processes", 6)
+	assertContainsMetric(t, dps, "phpfpm_active_processes_total", 6)
 	assertContainsMetric(t, dps, "phpfpm_slow_requests_rate", 0)
 }
 

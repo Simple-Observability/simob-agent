@@ -54,42 +54,42 @@ var metricDefinitions = []struct {
 	getVal func(current, previous *FPMStatus) float64
 }{
 	{
-		name:   "phpfpm_listen_queue",
+		name:   "phpfpm_listen_queue_total",
 		kind:   "gauge",
 		getVal: func(current, previous *FPMStatus) float64 { return float64(current.ListenQueue) },
 	},
 	{
-		name:   "phpfpm_max_listen_queue",
+		name:   "phpfpm_max_listen_queue_total",
 		kind:   "gauge",
 		getVal: func(current, previous *FPMStatus) float64 { return float64(current.MaxListenQueue) },
 	},
 	{
-		name:   "phpfpm_listen_queue_len",
+		name:   "phpfpm_listen_queue_length_total",
 		kind:   "gauge",
 		getVal: func(current, previous *FPMStatus) float64 { return float64(current.ListenQueueLen) },
 	},
 	{
-		name:   "phpfpm_idle_processes",
+		name:   "phpfpm_idle_processes_total",
 		kind:   "gauge",
 		getVal: func(current, previous *FPMStatus) float64 { return float64(current.IdleProcesses) },
 	},
 	{
-		name:   "phpfpm_active_processes",
+		name:   "phpfpm_active_processes_total",
 		kind:   "gauge",
 		getVal: func(current, previous *FPMStatus) float64 { return float64(current.ActiveProcesses) },
 	},
 	{
-		name:   "phpfpm_total_processes",
+		name:   "phpfpm_processes_total",
 		kind:   "gauge",
 		getVal: func(current, previous *FPMStatus) float64 { return float64(current.TotalProcesses) },
 	},
 	{
-		name:   "phpfpm_max_active_processes",
+		name:   "phpfpm_max_active_processes_total",
 		kind:   "gauge",
 		getVal: func(current, previous *FPMStatus) float64 { return float64(current.MaxActiveProcesses) },
 	},
 	{
-		name: "phpfpm_accepted_conn_rate",
+		name: "phpfpm_accepted_connections_rate",
 		kind: "gauge",
 		getVal: func(current, previous *FPMStatus) float64 {
 			if previous == nil {
