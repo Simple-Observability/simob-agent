@@ -13,6 +13,7 @@ import (
 	"agent/internal/metrics/memory"
 	"agent/internal/metrics/network"
 	"agent/internal/metrics/nginx"
+	"agent/internal/metrics/phpfpm"
 	"agent/internal/metrics/status"
 )
 
@@ -25,6 +26,7 @@ func BuildCollectors(cfg *collection.CollectionConfig) []metrics.MetricCollector
 		"memcached": memcached.NewMemcachedCollector(),
 		"net":       network.NewNetworkCollector(),
 		"nginx":     nginx.NewNginxCollector(),
+		"phpfpm":    phpfpm.NewPHPFPMCollector(),
 	}
 
 	var allCollectors []metrics.MetricCollector
