@@ -169,9 +169,9 @@ func (c *CaddyCollector) getStats() (*caddyStats, error) {
 			stats.Requests = sumFamily(family)
 		case "caddy_http_request_errors_total":
 			stats.Errors = sumFamily(family)
-		case "caddy_http_response_size_bytes":
+		case "caddy_http_response_size_bytes", "caddy_http_response_size_bytes_sum":
 			stats.ResponseBytes = sumFamily(family)
-		case "caddy_http_request_duration_seconds":
+		case "caddy_http_request_duration_seconds", "caddy_http_request_duration_seconds_sum":
 			stats.TotalDurationMs = sumFamily(family) * 1000
 		}
 	}

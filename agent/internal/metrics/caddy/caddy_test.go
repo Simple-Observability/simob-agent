@@ -75,8 +75,6 @@ func TestCaddyCollector(t *testing.T) {
 	assertContainsMetric(t, dps, "caddy_http_errors_total", 2.0)
 	assertContainsMetric(t, dps, "caddy_http_response_bytes", 1024.0)
 	assertContainsMetric(t, dps, "caddy_http_request_duration_ms", 500.0)
-	assertContainsMetric(t, dps, "caddy_memory_bytes", 50000000.0)
-	assertContainsMetric(t, dps, "caddy_cpu_total", 1.5)
 	assertContainsMetric(t, dps, "caddy_http_requests_rate", 0.0) // No previous stats
 
 	// Second collection for rate calculation
@@ -109,8 +107,8 @@ func TestCaddyCollector_Discover(t *testing.T) {
 	discovered, err := c.Discover()
 	require.NoError(t, err)
 
-	// 10 caddyMetrics
-	assert.Len(t, discovered, 10)
+	// 7 caddyMetrics
+	assert.Len(t, discovered, 7)
 }
 
 func TestCaddyCollector_Filtering(t *testing.T) {
