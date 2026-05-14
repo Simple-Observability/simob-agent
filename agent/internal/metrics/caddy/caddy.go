@@ -38,8 +38,6 @@ type caddyStats struct {
 	Errors          float64
 	ResponseBytes   float64
 	TotalDurationMs float64
-	MemoryBytes     float64
-	CPUTotal        float64
 }
 
 type CaddyCollector struct {
@@ -98,9 +96,6 @@ var caddyMetrics = []struct {
 	{"caddy_http_response_bytes", getGauge(func(s *caddyStats) float64 { return s.ResponseBytes })},
 	{"caddy_http_response_bps", getRate(func(s *caddyStats) float64 { return s.ResponseBytes })},
 	{"caddy_http_request_duration_ms", getGauge(func(s *caddyStats) float64 { return s.TotalDurationMs })},
-	{"caddy_memory_bytes", getGauge(func(s *caddyStats) float64 { return s.MemoryBytes })},
-	{"caddy_cpu_total", getGauge(func(s *caddyStats) float64 { return s.CPUTotal })},
-	{"caddy_cpu_rate", getRate(func(s *caddyStats) float64 { return s.CPUTotal })},
 }
 
 func (c *CaddyCollector) Collect() ([]metrics.DataPoint, error) {
@@ -178,10 +173,6 @@ func (c *CaddyCollector) getStats() (*caddyStats, error) {
 			stats.ResponseBytes = sumFamily(family)
 		case "caddy_http_request_duration_seconds":
 			stats.TotalDurationMs = sumFamily(family) * 1000
-		case "process_resident_memory_bytes":
-			stats.MemoryBytes = sumFamily(family)
-		case "process_cpu_seconds_total":
-			stats.CPUTotal = sumFamily(family)
 		}
 	}
 
