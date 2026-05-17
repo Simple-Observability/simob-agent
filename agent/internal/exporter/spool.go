@@ -66,14 +66,14 @@ func newSpool(opts ...spoolOption) (*spool, error) {
 		params.directory = filepath.Join(programDirectory, "spool")
 	}
 
-	err := os.MkdirAll(params.directory, 0o770)
+	err := os.MkdirAll(params.directory, os.ModeSetgid|0o770)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create spool directory: %w", err)
 	}
 	info, err := os.Stat(params.directory)
 	if err == nil {
-		if info.Mode().Perm() != 0o770 {
-			err = os.Chmod(params.directory, 0o770)
+		if info.Mode().Perm() != 0o770 || (info.Mode()&os.ModeSetgid == 0) {
+			err = os.Chmod(params.directory, os.ModeSetgid|0o770)
 			if err != nil {
 				logger.Log.Debug("Could not set directory permissions", "error", err)
 			}

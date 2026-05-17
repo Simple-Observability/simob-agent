@@ -23,6 +23,10 @@ Simple, lightweight, zero-config monitoring for your servers.
 
 </div>
 
+<div align="center">
+  <img alt="Simple Observability UI" src="./ui.png" width="640" style="border-radius: 12px">
+</div>
+
 ---
 
 Simple Observability Agent **(simob)** is a lightweight agent designed to
