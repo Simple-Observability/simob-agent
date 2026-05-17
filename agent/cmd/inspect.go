@@ -11,6 +11,8 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"agent/internal/hardware"
+	"agent/internal/hostinfo"
 	"agent/internal/logger"
 	"agent/internal/logs"
 	logsRegistry "agent/internal/logs/registry"
@@ -94,8 +96,44 @@ var inspectLogsCmd = &cobra.Command{
 	},
 }
 
+var inspectHardwareCmd = &cobra.Command{
+	Use:   "hardware",
+	Short: "Inspect hardware (host, disks, network)",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		logger.Init(os.Getenv("DEBUG") == "1")
+
+		results := make(map[string]interface{})
+
+		info, err := hostinfo.Gather()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Warning: failed to gather host info: %v\n", err)
+		} else {
+			results["host"] = info
+		}
+
+		disks, err := hardware.GetPhysicalDisks()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Warning: failed to gather disk info: %v\n", err)
+		} else {
+			results["disks"] = disks
+		}
+
+		ifaces, err := hardware.GetNetworkInterfaces()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Warning: failed to gather network info: %v\n", err)
+		} else {
+			results["network"] = ifaces
+		}
+
+		prettyJSON, _ := json.MarshalIndent(results, "", "  ")
+		fmt.Println(string(prettyJSON))
+		return nil
+	},
+}
+
 func init() {
 	inspectCmd.AddCommand(inspectMetricsCmd)
 	inspectCmd.AddCommand(inspectLogsCmd)
+	inspectCmd.AddCommand(inspectHardwareCmd)
 	rootCmd.AddCommand(inspectCmd)
 }
