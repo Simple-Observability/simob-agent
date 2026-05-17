@@ -11,6 +11,7 @@ import (
 	"agent/internal/authguard"
 	"agent/internal/collection"
 	"agent/internal/config"
+	"agent/internal/hardware"
 	"agent/internal/hostinfo"
 	"agent/internal/logger"
 )
@@ -103,6 +104,34 @@ func (c *Client) PostHostInfo(info hostinfo.HostInfo) error {
 	}
 
 	res, err := c.post("/servers/info/", info)
+	if err != nil {
+		return err
+	}
+	defer res.Body.Close()
+
+	return nil
+}
+
+func (c *Client) PostPhysicalDisks(disks []hardware.Disk) error {
+	if c.dryRun {
+		return nil
+	}
+
+	res, err := c.post("/servers/disks/", disks)
+	if err != nil {
+		return err
+	}
+	defer res.Body.Close()
+
+	return nil
+}
+
+func (c *Client) PostNetworkInterfaces(interfaces []hardware.Interface) error {
+	if c.dryRun {
+		return nil
+	}
+
+	res, err := c.post("/servers/interfaces/", interfaces)
 	if err != nil {
 		return err
 	}

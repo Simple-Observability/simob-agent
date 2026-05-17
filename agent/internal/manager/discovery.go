@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"agent/internal/api"
+	"agent/internal/hardware"
 	"agent/internal/hostinfo"
 	"agent/internal/logger"
 	"agent/internal/logs"
@@ -59,6 +60,20 @@ func (d *Discovery) publish() {
 		logger.Log.Error("failed to gather host info", "error", err)
 	} else if err := d.client.PostHostInfo(*info); err != nil {
 		logger.Log.Error("failed to send host info to backend", "error", err)
+	}
+
+	disks, err := hardware.GetPhysicalDisks()
+	if err != nil {
+		logger.Log.Error("failed to gather disk info", "error", err)
+	} else if err := d.client.PostPhysicalDisks(disks); err != nil {
+		logger.Log.Error("failed to send disk info to backend", "error", err)
+	}
+
+	ifaces, err := hardware.GetNetworkInterfaces()
+	if err != nil {
+		logger.Log.Error("failed to gather network info", "error", err)
+	} else if err := d.client.PostNetworkInterfaces(ifaces); err != nil {
+		logger.Log.Error("failed to send network info to backend", "error", err)
 	}
 
 	metricsCollectors := metricsRegistry.BuildCollectors(nil)
