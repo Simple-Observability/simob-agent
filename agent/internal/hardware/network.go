@@ -73,7 +73,7 @@ func GetNetworkInterfaces() ([]Interface, error) {
 		}
 	}
 
-	var results []Interface
+	results := []Interface{}
 	for _, v := range byMAC {
 		results = append(results, v)
 	}
