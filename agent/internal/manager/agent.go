@@ -18,6 +18,7 @@ import (
 	logsRegistry "agent/internal/logs/registry"
 	"agent/internal/metrics"
 	metricsRegistry "agent/internal/metrics/registry"
+	"agent/internal/processes"
 )
 
 type ControlEvent int
@@ -209,6 +210,10 @@ func (a *Agent) startServices(ctx context.Context, dryRun bool) {
 	logger.Log.Info("Starting metric collectors", "count", len(metricsCollectors))
 	a.wg.Add(1)
 	go metrics.StartCollection(metricsCollectors, collectionInterval, ctx, a.wg, a.exporter)
+
+	logger.Log.Info("Starting process monitoring collector")
+	a.wg.Add(1)
+	go processes.StartCollection(ctx, a.wg, a.exporter, collectionInterval)
 }
 
 func (a *Agent) hibernate(ctrl <-chan ControlEvent) (exit bool) {
