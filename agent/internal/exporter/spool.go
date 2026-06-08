@@ -13,10 +13,11 @@ import (
 )
 
 const (
-	metricsQueueName = "metrics"
-	logsQueueName    = "logs"
-	maxBatchSize     = 100
-	maxAge           = 24 * time.Hour
+	metricsQueueName   = "metrics"
+	logsQueueName      = "logs"
+	telemetryQueueName = "telemetry"
+	maxBatchSize       = 100
+	maxAge             = 24 * time.Hour
 )
 
 // unmarshalMetric unmarshals a metric payload from JSON
@@ -37,9 +38,19 @@ func unmarshalLog(data []byte) (Payload, error) {
 	return log, nil
 }
 
+// unmarshalTelemetry unmarshals a telemetry payload from JSON
+func unmarshalTelemetry(data []byte) (Payload, error) {
+	var telemetry TelemetryPayload
+	if err := json.Unmarshal(data, &telemetry); err != nil {
+		return nil, err
+	}
+	return telemetry, nil
+}
+
 type spool struct {
-	metricsQueue *jsonlQueue
-	logsQueue    *jsonlQueue
+	metricsQueue   *jsonlQueue
+	logsQueue      *jsonlQueue
+	telemetryQueue *jsonlQueue
 }
 
 type spoolOption func(*spoolParams)
@@ -82,8 +93,9 @@ func newSpool(opts ...spoolOption) (*spool, error) {
 
 	metricsQueue := newJSONLQueue(metricsQueueName, params.directory)
 	logsQueue := newJSONLQueue(logsQueueName, params.directory)
+	telemetryQueue := newJSONLQueue(telemetryQueueName, params.directory)
 
-	return &spool{metricsQueue, logsQueue}, nil
+	return &spool{metricsQueue, logsQueue, telemetryQueue}, nil
 }
 
 // appendToSpool appends a single payload to the specified spool file
@@ -98,15 +110,24 @@ func (s *spool) append(payload Payload) error {
 		return s.metricsQueue.Append(payloadBytes)
 	case *LogPayload, LogPayload:
 		return s.logsQueue.Append(payloadBytes)
+	case *TelemetryPayload, TelemetryPayload:
+		return s.telemetryQueue.Append(payloadBytes)
 	default:
 		return fmt.Errorf("unsupported payload type: %T", payload)
 	}
 }
 
 func (s *spool) getBatch(fromQueue string, unmarshal func([]byte) (Payload, error)) ([]Payload, bool, error) {
-	queue := s.logsQueue
-	if fromQueue == metricsQueueName {
+	var queue *jsonlQueue
+	switch fromQueue {
+	case metricsQueueName:
 		queue = s.metricsQueue
+	case logsQueueName:
+		queue = s.logsQueue
+	case telemetryQueueName:
+		queue = s.telemetryQueue
+	default:
+		return nil, false, fmt.Errorf("unknown queue: %s", fromQueue)
 	}
 
 	lines, hasMore, err := queue.PopBatch(maxBatchSize)
@@ -137,5 +158,8 @@ func (s *spool) close() {
 	}
 	if err := s.logsQueue.Close(); err != nil {
 		logger.Log.Error("failed to close logs queue", "error", err)
+	}
+	if err := s.telemetryQueue.Close(); err != nil {
+		logger.Log.Error("failed to close telemetry queue", "error", err)
 	}
 }

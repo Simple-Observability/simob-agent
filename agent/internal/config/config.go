@@ -11,49 +11,33 @@ import (
 )
 
 type Config struct {
-	APIKey           string `json:"api_key"`
-	APIUrl           string `json:"api_url"`
-	LogsExportUrl    string `json:"logs_export_url"`
-	MetricsExportUrl string `json:"metrics_export_url"`
+	APIKey             string `json:"api_key"`
+	APIUrl             string `json:"api_url"`
+	LogsExportUrl      string `json:"logs_export_url"`
+	MetricsExportUrl   string `json:"metrics_export_url"`
+	TelemetryExportUrl string `json:"telemetry_export_url"`
 }
 
 const ConfigFilename = "config.json"
 
+const (
+	DefaultAPIUrl             = "https://api.simpleobservability.com"
+	DefaultLogsExportUrl      = "https://logs.simpleobservability.com"
+	DefaultMetricsExportUrl   = "https://metrics.simpleobservability.com"
+	DefaultTelemetryExportUrl = "https://telemetry.simpleobservability.com"
+)
+
 func NewConfig(apiKey string) *Config {
-	// Defaults
-	defaultAPIUrl := "https://api.simpleobservability.com"
-	defaultLogsExportUrl := "https://logs.simpleobservability.com"
-	defaultMetricsExportUrl := "https://metrics.simpleobservability.com"
-
-	// Start with defaults
-	cfg := &Config{
-		APIKey:           apiKey,
-		APIUrl:           defaultAPIUrl,
-		LogsExportUrl:    defaultLogsExportUrl,
-		MetricsExportUrl: defaultMetricsExportUrl,
-	}
-
 	// Try to load existing config file first
 	logger.Log.Debug("Trying to load existing config file")
-	if existingCfg, err := Load(); err == nil {
-		// If config file exists, use its values (override defaults)
-		if existingCfg.APIKey != "" {
-			cfg.APIKey = existingCfg.APIKey
-		}
-		if existingCfg.APIUrl != "" {
-			cfg.APIUrl = existingCfg.APIUrl
-		}
-		if existingCfg.LogsExportUrl != "" {
-			cfg.LogsExportUrl = existingCfg.LogsExportUrl
-		}
-		if existingCfg.MetricsExportUrl != "" {
-			cfg.MetricsExportUrl = existingCfg.MetricsExportUrl
-		}
-	} else {
-		logger.Log.Debug("Failed to open existing config file")
+	cfg, err := Load()
+	if err != nil {
+		logger.Log.Debug("Failed to load existing config file, using defaults", slog.Any("err", err))
+		cfg = &Config{}
+		cfg.ApplyDefaults()
 	}
 
-	// Finally, override with provided apiKey parameter if it's not empty
+	// Override with provided apiKey parameter if it's not empty
 	if apiKey != "" {
 		cfg.APIKey = apiKey
 		logger.Log.Debug("Overriding API key")
@@ -66,10 +50,32 @@ func NewConfig(apiKey string) *Config {
 }
 
 // Setters
-func (c *Config) SetAPIKey(apiKey string)                     { c.APIKey = apiKey }
-func (c *Config) SetAPIUrl(apiUrl string)                     { c.APIUrl = apiUrl }
-func (c *Config) SetLogsExportUrl(logsExportUrl string)       { c.LogsExportUrl = logsExportUrl }
-func (c *Config) SetMetricsExportUrl(metricsExportUrl string) { c.MetricsExportUrl = metricsExportUrl }
+func (c *Config) SetAPIKey(apiKey string) { c.APIKey = apiKey }
+func (c *Config) SetAPIUrl(apiUrl string) { c.APIUrl = apiUrl }
+func (c *Config) SetLogsExportUrl(logsExportUrl string) {
+	c.LogsExportUrl = logsExportUrl
+}
+func (c *Config) SetMetricsExportUrl(metricsExportUrl string) {
+	c.MetricsExportUrl = metricsExportUrl
+}
+func (c *Config) SetTelemetryExportUrl(telemetryExportUrl string) {
+	c.TelemetryExportUrl = telemetryExportUrl
+}
+
+func (c *Config) ApplyDefaults() {
+	if c.APIUrl == "" {
+		c.APIUrl = DefaultAPIUrl
+	}
+	if c.LogsExportUrl == "" {
+		c.LogsExportUrl = DefaultLogsExportUrl
+	}
+	if c.MetricsExportUrl == "" {
+		c.MetricsExportUrl = DefaultMetricsExportUrl
+	}
+	if c.TelemetryExportUrl == "" {
+		c.TelemetryExportUrl = DefaultTelemetryExportUrl
+	}
+}
 
 func ConfigPath() (string, error) {
 	programDirectory, err := common.GetProgramDirectory()
@@ -114,5 +120,6 @@ func Load() (*Config, error) {
 	if err := json.NewDecoder(f).Decode(&cfg); err != nil {
 		return nil, err
 	}
+	cfg.ApplyDefaults()
 	return &cfg, nil
 }
