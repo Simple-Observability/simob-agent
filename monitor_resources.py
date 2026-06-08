@@ -141,6 +141,14 @@ def run_and_measure(command, poll_hz=50):
   process_finished = True
   end_time = time.time()
 
+  # Print process output for debugging
+  print("\n--- Program Output ---")
+  if stdout:
+    print(stdout.decode().strip())
+  if stderr:
+    print(stderr.decode().strip())
+  print("----------------------\n")
+
   # Wait for monitoring thread to finish
   monitor_thread.join(timeout=1.0)
 
