@@ -87,6 +87,8 @@ func setConfigValue(key, value string) error {
 		cfg.SetLogsExportUrl(value)
 	case "metrics_export_url":
 		cfg.SetMetricsExportUrl(value)
+	case "telemetry_export_url":
+		cfg.SetTelemetryExportUrl(value)
 	default:
 		return fmt.Errorf("unknown config key: %s", key)
 	}
