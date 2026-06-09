@@ -1,6 +1,7 @@
 package exporter
 
 import (
+	"encoding/json"
 	"fmt"
 
 	"agent/internal/config"
@@ -28,8 +29,16 @@ type LogPayload struct {
 	Message   string            `json:"message"`
 }
 
-func (m MetricPayload) GetTimestamp() string { return m.Timestamp }
-func (l LogPayload) GetTimestamp() string    { return l.Timestamp }
+// TelemetryPayload represents a generic telemetry payload (e.g. process snapshots).
+type TelemetryPayload struct {
+	Timestamp string          `json:"timestamp"` // Unix timestamp in milliseconds as a string
+	Type      string          `json:"type"`      // Type of telemetry (e.g. "processes")
+	Data      json.RawMessage `json:"data"`      // Generic JSON payload
+}
+
+func (m MetricPayload) GetTimestamp() string    { return m.Timestamp }
+func (l LogPayload) GetTimestamp() string       { return l.Timestamp }
+func (t TelemetryPayload) GetTimestamp() string { return t.Timestamp }
 
 // Exporter handles sending metrics and logs to remote storage.
 type Exporter struct {
@@ -100,6 +109,22 @@ func (e *Exporter) ExportLog(logs []LogPayload) error {
 	logger.Log.Debug("Appended logs to spool", "count", len(logs), "failed", failed)
 	if failed > 0 {
 		return fmt.Errorf("failed to append %d out of %d payloads", failed, len(logs))
+	}
+	return nil
+}
+
+// ExportTelemetry sends a batch of telemetry payloads to the configured telemetry endpoint.
+func (e *Exporter) ExportTelemetry(telemetry []TelemetryPayload) error {
+	var failed int
+	for _, t := range telemetry {
+		if err := e.spool.append(t); err != nil {
+			failed++
+			logger.Log.Error("failed to append telemetry to spool", "error", err)
+		}
+	}
+	logger.Log.Debug("Appended telemetry to spool", "count", len(telemetry), "failed", failed)
+	if failed > 0 {
+		return fmt.Errorf("failed to append %d out of %d payloads", failed, len(telemetry))
 	}
 	return nil
 }

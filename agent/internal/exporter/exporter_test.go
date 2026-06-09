@@ -97,3 +97,38 @@ func TestNewExporterWithoutFlusher(t *testing.T) {
 	assert.Len(t, spooled, 1)
 	assert.Equal(t, "test_no_flush_metric", spooled[0].(MetricPayload).Name)
 }
+
+func TestExporter_ExportTelemetry(t *testing.T) {
+	logger.Init(true)
+
+	tempDir, err := os.MkdirTemp("", "exporter_telemetry_test")
+	require.NoError(t, err)
+	defer os.RemoveAll(tempDir)
+
+	s, err := newSpool(withDirectory(tempDir))
+	require.NoError(t, err)
+	defer s.close()
+
+	e := &Exporter{spool: s}
+
+	now := time.Now().UnixMilli()
+	ts := strconv.FormatInt(now, 10)
+	telemetry := []TelemetryPayload{
+		{
+			Timestamp: ts,
+			Type:      "processes",
+			Data:      []byte(`[{"pid":1}]`),
+		},
+	}
+
+	err = e.ExportTelemetry(telemetry)
+	require.NoError(t, err)
+
+	// Verify it's in the spool
+	spooled, _, err := s.getBatch(telemetryQueueName, unmarshalTelemetry)
+	require.NoError(t, err)
+	assert.Len(t, spooled, 1)
+	assert.Equal(t, "processes", spooled[0].(TelemetryPayload).Type)
+	assert.Equal(t, []byte(`[{"pid":1}]`), []byte(spooled[0].(TelemetryPayload).Data))
+}
+

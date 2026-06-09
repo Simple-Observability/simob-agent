@@ -18,15 +18,16 @@ const (
 )
 
 type flusher struct {
-	apiKey     string
-	metricsURL string
-	logsURL    string
-	httpClient *http.Client
-	stopChans  []chan struct{}
-	ctx        context.Context
-	cancel     context.CancelFunc
-	spool      *spool
-	dryRun     bool
+	apiKey       string
+	metricsURL   string
+	logsURL      string
+	telemetryURL string
+	httpClient   *http.Client
+	stopChans    []chan struct{}
+	ctx          context.Context
+	cancel       context.CancelFunc
+	spool        *spool
+	dryRun       bool
 }
 
 type payloadConfig struct {
@@ -38,14 +39,15 @@ type payloadConfig struct {
 func newFlusher(spool *spool, cfg *config.Config, dryRun bool) (*flusher, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &flusher{
-		apiKey:     cfg.APIKey,
-		metricsURL: cfg.MetricsExportUrl,
-		logsURL:    cfg.LogsExportUrl,
-		httpClient: &http.Client{Timeout: 10 * time.Second},
-		ctx:        ctx,
-		cancel:     cancel,
-		spool:      spool,
-		dryRun:     dryRun,
+		apiKey:       cfg.APIKey,
+		metricsURL:   cfg.MetricsExportUrl,
+		logsURL:      cfg.LogsExportUrl,
+		telemetryURL: cfg.TelemetryExportUrl,
+		httpClient:   &http.Client{Timeout: 10 * time.Second},
+		ctx:          ctx,
+		cancel:       cancel,
+		spool:        spool,
+		dryRun:       dryRun,
 	}, nil
 }
 
@@ -54,6 +56,7 @@ func (f *flusher) start() {
 	streams := []payloadConfig{
 		{name: "metrics", url: f.metricsURL, unmarshal: unmarshalMetric},
 		{name: "logs", url: f.logsURL, unmarshal: unmarshalLog},
+		{name: "telemetry", url: f.telemetryURL, unmarshal: unmarshalTelemetry},
 	}
 	for _, config := range streams {
 		done := make(chan struct{})

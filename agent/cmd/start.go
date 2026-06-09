@@ -62,10 +62,14 @@ func initializeAndLoadAgent() (*manager.Agent, error) {
 	// Load config
 	cfg, err := config.Load()
 	if err != nil {
-		logger.Log.Error("failed to load config", "error", err)
-		return nil, err
+		if !dryRun {
+			logger.Log.Error("failed to load config", "error", err)
+			return nil, err
+		}
+		cfg = config.NewConfig("")
 	}
-	if cfg.APIKey == "" {
+
+	if cfg.APIKey == "" && !dryRun {
 		err = fmt.Errorf("missing API key in config")
 		logger.Log.Error("failed to start agent", "error", err)
 		return nil, err

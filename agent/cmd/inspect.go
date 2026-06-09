@@ -17,6 +17,7 @@ import (
 	"agent/internal/logs"
 	logsRegistry "agent/internal/logs/registry"
 	metricsRegistry "agent/internal/metrics/registry"
+	"agent/internal/processes"
 )
 
 var inspectCmd = &cobra.Command{
@@ -131,9 +132,33 @@ var inspectHardwareCmd = &cobra.Command{
 	},
 }
 
+var inspectProcessesCmd = &cobra.Command{
+	Use:   "processes",
+	Short: "Inspect system processes and print current snapshot",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		logger.Init(os.Getenv("DEBUG") == "1")
+
+		collector := processes.NewCollector()
+
+		// First collection to init state
+		_, _ = collector.Collect()
+		time.Sleep(1 * time.Second)
+
+		data, err := collector.Collect()
+		if err != nil {
+			return fmt.Errorf("failed to collect processes: %w", err)
+		}
+
+		prettyJSON, _ := json.MarshalIndent(data, "", "  ")
+		fmt.Println(string(prettyJSON))
+		return nil
+	},
+}
+
 func init() {
 	inspectCmd.AddCommand(inspectMetricsCmd)
 	inspectCmd.AddCommand(inspectLogsCmd)
 	inspectCmd.AddCommand(inspectHardwareCmd)
+	inspectCmd.AddCommand(inspectProcessesCmd)
 	rootCmd.AddCommand(inspectCmd)
 }

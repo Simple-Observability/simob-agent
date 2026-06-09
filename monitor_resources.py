@@ -71,7 +71,7 @@ def lifetime_stats(pid):
   print("CPU")
   print(f"  Utilization (avg): {cpu_util*100:.2f} %")
 
-  uss = get_mem_uss(args.pid)
+  uss = get_mem_uss(pid)
   print("Memory:")
   print(f"  Current: {uss} kB")
 
@@ -174,6 +174,9 @@ def run_and_measure(command, poll_hz=50):
   print(f"Write: {write_bytes / 1000:.0f} kB ({write_bytes / runtime:.0f} B/s)")
   print("-------------------\n")
 
+  if proc.returncode != 0:
+    sys.exit(proc.returncode)
+
 
 if __name__ == "__main__":
   parser = argparse.ArgumentParser()
@@ -187,4 +190,3 @@ if __name__ == "__main__":
     lifetime_stats(args.pid)
   elif args.run:
     run_and_measure(args.run)
-
