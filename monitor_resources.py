@@ -142,7 +142,7 @@ def run_and_measure(command, poll_hz=50):
   end_time = time.time()
 
   # Print process output for debugging
-  print("\n--- Program Output ---")
+  print("\n--- Output ---")
   if stdout:
     print(stdout.decode().strip())
   if stderr:
