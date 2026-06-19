@@ -100,38 +100,13 @@ jobs:
       working-directory: ./agent
 
     - name: Build agent binaries
-      run: |
-        echo "Building version: ${{ env.VERSION }}"
-        echo "Output binary name: ${{ env.BINARY_NAME }}"
-
-        STATIC_LDFLAGS=""
-        if [[ "${{ matrix.os }}" == "linux" ]]; then
-          export CGO_ENABLED=1
-          if [[ "${{ matrix.arch }}" == "amd64" ]]; then
-            ZIG_TARGET="x86_64-linux-musl"
-          elif [[ "${{ matrix.arch }}" == "arm64" ]]; then
-            ZIG_TARGET="aarch64-linux-musl"
-          fi
-          export CC="zig cc -target $ZIG_TARGET"
-          export CXX="zig c++ -target $ZIG_TARGET"
-          STATIC_LDFLAGS="-linkmode external -extldflags '-static'"
-        fi
-
-        # Debug
-        echo "Building debug binaries..."
-        GOOS=${{ matrix.os }} GOARCH=${{ matrix.arch }} go build \
-          -gcflags="all=-N -l" \
-          -ldflags "$STATIC_LDFLAGS -X 'agent/internal/version.Version=${{ env.VERSION }}.debug'" \
-          -o ../${{ env.BINARY_NAME }}-debug \
-          main.go
-
-        # Production
-        echo "Building production binaries..."
-        GOOS=${{ matrix.os }} GOARCH=${{ matrix.arch }} go build \
-          -ldflags "-s -w $STATIC_LDFLAGS -X 'agent/internal/version.Version=${{ env.VERSION }}'" \
-          -o ../${{ env.BINARY_NAME }} \
-          main.go
       working-directory: ./agent
+      run: |
+        make all \
+          VERSION="${{ env.VERSION }}" \
+          BINARY_NAME="${{ env.BINARY_NAME }}" \
+          GOOS="${{ matrix.os }}" \
+          GOARCH="${{ matrix.arch }}"
 
     - name: Upload artifact (${{ matrix.os }} ${{ matrix.arch }})
       uses: actions/upload-artifact@v6
