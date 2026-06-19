@@ -75,15 +75,22 @@ jobs:
     - name: Set up Zig
       if: matrix.os == 'linux'
       run: |
-        curl -L https://ziglang.org/download/0.16.0/zig-x86_64-linux-0.16.0.tar.xz -o zig.tar.xz
+        if [[ "${{ matrix.arch }}" == "amd64" ]]; then
+          ZIG_ARCH="x86_64"
+        elif [[ "${{ matrix.arch }}" == "arm64" ]]; then
+          ZIG_ARCH="aarch64"
+        else
+          echo "Unsupported architecture"
+          exit 1
+        fi
+        curl -L "https://ziglang.org/download/0.16.0/zig-${ZIG_ARCH}-linux-0.16.0.tar.xz" -o zig.tar.xz
         tar -xf zig.tar.xz
-        echo "$PWD/zig-x86_64-linux-0.16.0" >> "$GITHUB_PATH"
+        echo "$PWD/zig-${ZIG_ARCH}-linux-0.16.0" >> "$GITHUB_PATH"
 
     - name: Set Environment Variables
       run: |
         EXT=""
         if [[ "${{ matrix.os }}" == "windows" ]]; then EXT=".exe"; fi
-
         echo "BINARY_NAME=simob-${{ matrix.os }}-${{ matrix.arch }}${EXT}" >> $GITHUB_ENV
         echo "VERSION=${{ github.ref_name }}" >> $GITHUB_ENV
         echo "Go version used: $(go version)"
