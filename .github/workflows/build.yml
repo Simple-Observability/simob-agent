@@ -74,9 +74,10 @@ jobs:
 
     - name: Set up Zig
       if: matrix.os == 'linux'
-      uses: gobwas/setup-zig@v2
-      with:
-        version: 0.13.0
+      run: |
+        curl -L https://ziglang.org/download/0.16.0/zig-x86_64-linux-0.16.0.tar.xz -o zig.tar.xz
+        tar -xf zig.tar.xz
+        echo "$PWD/zig-x86_64-linux-0.16.0" >> "$GITHUB_PATH"
 
     - name: Set Environment Variables
       run: |
