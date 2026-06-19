@@ -113,8 +113,8 @@ jobs:
             ZIG_TARGET="aarch64-linux-musl"
           fi
           export CC="zig cc -target $ZIG_TARGET"
-          export CXX="zig++ -target $ZIG_TARGET"
-          STATIC_LDFLAGS="-extldflags '-static'"
+          export CXX="zig c++ -target $ZIG_TARGET"
+          STATIC_LDFLAGS="-linkmode external -extldflags '-static'"
         fi
 
         # Debug
