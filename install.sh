@@ -251,6 +251,14 @@ cp "$BINARY_PATH" "$INSTALL_PATH"
 ln -sf "$INSTALL_DIR/$SERVICE_NAME" "$LINK_DIR/$SERVICE_NAME"
 chmod +x "$INSTALL_PATH"
 
+# Verify the binary can actually execute on this system before relying on it.
+echo "[*] Verifying binary compatibility..."
+if ! "$INSTALL_PATH" version &>/dev/null; then
+  echo "[x] Error: The downloaded binary is not compatible with this system."
+  exit_with_telemetry "Binary not compatible with this system"
+fi
+echo "[+] Binary is compatible with this system."
+
 if [[ "$IS_SUDO_MODE" == "true" ]]; then
   create_custom_user
 
