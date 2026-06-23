@@ -72,11 +72,25 @@ jobs:
         go-version-file: ./agent/go.mod
         cache-dependency-path: ./agent/go.sum
 
+    - name: Set up Zig
+      if: matrix.os == 'linux'
+      run: |
+        if [[ "${{ matrix.arch }}" == "amd64" ]]; then
+          ZIG_ARCH="x86_64"
+        elif [[ "${{ matrix.arch }}" == "arm64" ]]; then
+          ZIG_ARCH="aarch64"
+        else
+          echo "Unsupported architecture"
+          exit 1
+        fi
+        curl -L "https://ziglang.org/download/0.16.0/zig-${ZIG_ARCH}-linux-0.16.0.tar.xz" -o zig.tar.xz
+        tar -xf zig.tar.xz
+        echo "$PWD/zig-${ZIG_ARCH}-linux-0.16.0" >> "$GITHUB_PATH"
+
     - name: Set Environment Variables
       run: |
         EXT=""
         if [[ "${{ matrix.os }}" == "windows" ]]; then EXT=".exe"; fi
-
         echo "BINARY_NAME=simob-${{ matrix.os }}-${{ matrix.arch }}${EXT}" >> $GITHUB_ENV
         echo "VERSION=${{ github.ref_name }}" >> $GITHUB_ENV
         echo "Go version used: $(go version)"
@@ -86,25 +100,13 @@ jobs:
       working-directory: ./agent
 
     - name: Build agent binaries
-      run: |
-        echo "Building version: ${{ env.VERSION }}"
-        echo "Output binary name: ${{ env.BINARY_NAME }}"
-
-        # Debug
-        echo "Building debug binaries..."
-        GOOS=${{ matrix.os }} GOARCH=${{ matrix.arch }} go build \
-          -gcflags="all=-N -l" \
-          -ldflags "-X 'agent/internal/version.Version=${{ env.VERSION }}.debug'" \
-          -o ../${{ env.BINARY_NAME }}-debug \
-          main.go
-
-        # Production
-        echo "Building production binaries..."
-        GOOS=${{ matrix.os }} GOARCH=${{ matrix.arch }} go build \
-          -ldflags "-s -w -X 'agent/internal/version.Version=${{ env.VERSION }}'" \
-          -o ../${{ env.BINARY_NAME }} \
-          main.go
       working-directory: ./agent
+      run: |
+        make all \
+          VERSION="${{ env.VERSION }}" \
+          BINARY_NAME="${{ env.BINARY_NAME }}" \
+          GOOS="${{ matrix.os }}" \
+          GOARCH="${{ matrix.arch }}"
 
     - name: Upload artifact (${{ matrix.os }} ${{ matrix.arch }})
       uses: actions/upload-artifact@v6
