@@ -28,6 +28,12 @@ var severityMap = map[int]string{
 
 const defaultSeverity = 6
 
+const selfIdentifier = "simob"
+
+func shouldSkip(entry logs.LogEntry) bool {
+	return entry.Metadata["identifier"] == selfIdentifier
+}
+
 type JournalCTLCollector struct {
 	name    string
 	cancel  context.CancelFunc
@@ -152,6 +158,10 @@ func (c *JournalCTLCollector) runJournalctl(ctx context.Context, out chan<- logs
 		logEntry, err := c.processJSONEntry(line)
 		if err != nil {
 			logger.Log.Error("failed to process journalctl entry", "error", err)
+			continue
+		}
+
+		if shouldSkip(logEntry) {
 			continue
 		}
 

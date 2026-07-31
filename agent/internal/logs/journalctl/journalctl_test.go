@@ -5,6 +5,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"agent/internal/logs"
 )
 
 func TestProcessJSONEntry(t *testing.T) {
@@ -65,6 +67,25 @@ func TestProcessJSONEntry(t *testing.T) {
 
 			// 1675204481123456 microseconds = 1675204481123 milliseconds
 			assert.Equal(t, int64(1675204481123), entry.Timestamp)
+		})
+	}
+}
+
+func TestShouldSkip(t *testing.T) {
+	tests := []struct {
+		name     string
+		ident    string
+		expected bool
+	}{
+		{name: "self identifier skipped", ident: "simob", expected: true},
+		{name: "other identifier kept", ident: "sshd", expected: false},
+		{name: "empty identifier kept", ident: "", expected: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			entry := logs.LogEntry{Metadata: map[string]string{"identifier": tt.ident}}
+			assert.Equal(t, tt.expected, shouldSkip(entry))
 		})
 	}
 }
