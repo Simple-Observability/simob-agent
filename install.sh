@@ -108,11 +108,15 @@ CapabilityBoundingSet=CAP_DAC_READ_SEARCH
 [Unit]
 Description=${SERVICE_NAME} daemon
 After=network.target
+Wants=network-online.target
+StartLimitIntervalSec=300
+StartLimitBurst=10
 
 [Service]
 Type=simple
 ExecStart=${INSTALL_PATH} start
 Restart=always
+RestartSec=5s
 User=${CUSTOM_USER}
 Group=${CUSTOM_GROUP}
 ${SYSTEM_CAPABILITIES}
