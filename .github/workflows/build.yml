@@ -219,6 +219,7 @@ jobs:
   # ------------------------------------------------------------------
   docker:
     name: Build and Push Docker Image
+    if: github.event_name == 'push' && github.ref_type == 'tag'
     needs: [test-linux, test-windows]
     runs-on: ubuntu-latest
     steps:
