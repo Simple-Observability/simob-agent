@@ -215,6 +215,54 @@ jobs:
         simob start --dry-run
 
   # ------------------------------------------------------------------
+  # Docker
+  # ------------------------------------------------------------------
+  docker:
+    name: Build and Push Docker Image
+    if: github.event_name == 'push' && github.ref_type == 'tag'
+    needs: [test-linux, test-windows]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Download linux-amd64 artifact
+        uses: actions/download-artifact@v7
+        with:
+          name: preview-linux-amd64
+          path: artifacts/amd64
+
+      - name: Download linux-arm64 artifact
+        uses: actions/download-artifact@v7
+        with:
+          name: preview-linux-arm64
+          path: artifacts/arm64
+
+      - name: Prepare binaries
+        run: |
+          cp artifacts/amd64/simob-linux-amd64 .
+          cp artifacts/arm64/simob-linux-arm64 .
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            chunkcorp/simob:latest
+            chunkcorp/simob:${{ github.ref_name }}
+
+  # ------------------------------------------------------------------
   # Release
   # ------------------------------------------------------------------
   create-release:
