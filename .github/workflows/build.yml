@@ -256,7 +256,7 @@ jobs:
           context: .
           file: ./Dockerfile
           platforms: linux/amd64,linux/arm64
-          push: false
+          push: true
           tags: |
             chunkcorp/simob:latest
             chunkcorp/simob:${{ github.ref_name }}
