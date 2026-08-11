@@ -258,8 +258,8 @@ jobs:
           platforms: linux/amd64,linux/arm64
           push: false
           tags: |
-            simpleobservability/simob-agent:latest
-            simpleobservability/simob-agent:${{ github.ref_name }}
+            chunkcorp/simob:latest
+            chunkcorp/simob:${{ github.ref_name }}
 
   # ------------------------------------------------------------------
   # Release
