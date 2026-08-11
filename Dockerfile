@@ -1,5 +1,5 @@
-ARG TARGETARCH
 FROM alpine:3.19
+ARG TARGETARCH
 
 RUN addgroup -S simob && adduser -S simob -G simob
 WORKDIR /app
