@@ -1,0 +1,25 @@
+---
+# Install the Simple Observability agent on Linux via deploy key.
+# Server name is always the system hostname.
+# Requires: curl and sudo on the target.
+
+- name: Check if simob is already installed
+  ansible.builtin.stat:
+    path: /opt/simob/simob
+  register: simob_binary
+
+- name: Install agent via deploy key
+  ansible.builtin.shell: |
+    curl -fsSL https://simpleobservability.com/install.sh | bash -s -- --deploy-key {{ simob_deploy_key }} {{ simob_install_flags }}
+  args:
+    creates: /opt/simob/simob
+  environment:
+    SKIP_TELEMETRY: "{{ '1' if simob_skip_telemetry else '' }}"
+  when: not simob_binary.stat.exists
+
+- name: Ensure simob service is running and enabled
+  ansible.builtin.systemd:
+    name: simob
+    state: started
+    enabled: true
+  when: ansible_service_mgr == "systemd"

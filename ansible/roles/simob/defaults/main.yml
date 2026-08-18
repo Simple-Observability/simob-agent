@@ -1,0 +1,14 @@
+---
+# The deploy key used to auto-provision servers.
+# Generate one from your Simple Observability workspace settings.
+simob_deploy_key: ""
+
+# State of the agent: "present" to install, "absent" to uninstall.
+simob_state: present
+
+# Additional flags passed to the install script (Linux only).
+# Example: "--no-journal-access"
+simob_install_flags: ""
+
+# Skip the anonymized install telemetry.
+simob_skip_telemetry: false

@@ -1,0 +1,24 @@
+namespace: simpleobservability
+
+name: agent
+
+version: 0.1.0
+
+readme: README.md
+
+authors:
+  - Simple Observability
+
+description: Install and manage the Simple Observability agent (simob) across a fleet of servers.
+
+license:
+  - MIT
+
+tags:
+  - monitoring
+  - observability
+  - metrics
+  - logs
+  - infrastructure
+
+dependencies: {}

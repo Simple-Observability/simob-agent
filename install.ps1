@@ -1,6 +1,7 @@
 param (
-  [Parameter(Mandatory=$true)]
   [string]$ApiKey,
+
+  [string]$DeployKey,
 
   [switch]$SkipKeyCheck,
 
@@ -91,9 +92,63 @@ function Set-SystemPath {
   }
 }
 
+function Provision-ServerWithDeployKey {
+  param([string]$DeployKey)
+
+  $ServerName = $env:COMPUTERNAME
+
+  Write-Log "Provisioning server '$ServerName' via deploy key..."
+
+  $Headers = @{
+    "Authorization" = "Api-Key $DeployKey"
+  }
+  $Body = @{ name = $ServerName } | ConvertTo-Json
+
+  try {
+    $Response = Invoke-RestMethod -Uri "$BaseUrl/servers/" -Method Post -Headers $Headers -Body $Body -ContentType "application/json"
+    Write-Log "Server '$ServerName' provisioned successfully."
+    return $Response.key
+  } catch {
+    $StatusCode = $_.Exception.Response.StatusCode.value__
+
+    if ($StatusCode -eq 400) {
+      # Name collision - retry with a short hex suffix
+      $Suffix = -join ((1..4) | ForEach-Object { '{0:x}' -f (Get-Random -Max 16) })
+      $ServerName = "$ServerName-$Suffix"
+      Write-Log "Name collision. Retrying as '$ServerName'..."
+      $Body = @{ name = $ServerName } | ConvertTo-Json
+      try {
+        $Response = Invoke-RestMethod -Uri "$BaseUrl/servers/" -Method Post -Headers $Headers -Body $Body -ContentType "application/json"
+        Write-Log "Server '$ServerName' provisioned with suffix."
+        return $Response.key
+      } catch {
+        $StatusCode2 = $_.Exception.Response.StatusCode.value__
+        Exit-WithTelemetry "Deploy key provisioning failed on retry (HTTP $StatusCode2)"
+      }
+    } elseif ($StatusCode -eq 403) {
+      Exit-WithTelemetry "Workspace server limit reached"
+    } elseif ($StatusCode -eq 401) {
+      Exit-WithTelemetry "Deploy key is invalid or revoked"
+    } else {
+      Exit-WithTelemetry "Deploy key provisioning failed (HTTP $StatusCode)"
+    }
+  }
+}
+
 # -----------------------------------------------------------------------------
 # Main
 # -----------------------------------------------------------------------------
+
+# If deploy key is provided, provision a server and get the server key
+if ($DeployKey) {
+  # Idempotency: skip if already installed
+  if (Test-Path $ExePath) {
+    Write-Log "simob is already installed. Nothing to do."
+    exit 0
+  }
+  $ApiKey = Provision-ServerWithDeployKey -DeployKey $DeployKey
+  $SkipKeyCheck = $true
+}
 
 #  Admin Check
 if (-not (Test-IsAdmin)) {
@@ -103,6 +158,14 @@ if (-not (Test-IsAdmin)) {
 # Dependency Check (PowerShell Version)
 if ($PSVersionTable.PSVersion.Major -lt 5) {
   Exit-WithTelemetry "PowerShell version < 5.0. Please upgrade PowerShell."
+}
+
+# Check if API key is available
+if (-not $ApiKey) {
+  Write-Log "Missing API key" "ERROR"
+  Write-Log "Usage: .\install.ps1 -ApiKey <KEY> [-SkipKeyCheck]"
+  Write-Log "   or: .\install.ps1 -DeployKey <KEY>"
+  Exit-WithTelemetry "API key is missing"
 }
 
 # Validate API Key

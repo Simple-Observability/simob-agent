@@ -9,6 +9,7 @@ SERVICE_NAME="simob"
 CUSTOM_USER="simob-agent"
 CUSTOM_GROUP="simob-admins"
 SERVICE_FILE_PATH="/etc/systemd/system/${SERVICE_NAME}.service"
+API_URL="https://api.simpleobservability.com"
 
 # Sends a minimal exit reason payload to a telemetry endpoint before exiting the current script
 exit_with_telemetry() {
@@ -17,7 +18,7 @@ exit_with_telemetry() {
   fi
 
   local exit_reason="$1"
-  local TELEMETRY_ENDPOINT="https://api.simpleobservability.com/telemetry/install"
+  local TELEMETRY_ENDPOINT="${API_URL}/telemetry/install"
   if [[ -z "$exit_reason" ]]; then
     exit_reason="Unspecified reason"
   fi
@@ -46,14 +47,98 @@ check_key_validity() {
     -w "%{http_code}" \
     -H "Content-Type: application/json" \
     -d "{\"api_key\": \"$key\"}" \
-    "https://api.simpleobservability.com/check-key/"
+    "${API_URL}/check-key/"
   )
+
   if [ "$HTTP_CODE" -eq 200 ]; then
     echo "[+] API key is valid."
   else
     echo "[x] Error: API key check failed. Received HTTP $HTTP_CODE."
     exit_with_telemetry "API key is not valid"
   fi
+}
+
+# Extract the server key from a JSON response body.
+extract_key_from_json() {
+  echo "$1" | sed -n 's/.*"key": *"\([^"]*\)".*/\1/p' | head -1
+}
+
+# Provisions a new server on the backend using a deploy key.
+# Always uses the system hostname as the server name.
+# Sets the global API_KEY variable to the returned server key.
+provision_server_with_deploy_key() {
+  local deploy_key="$1"
+  local server_name
+  server_name=$(hostname -f 2>/dev/null || hostname)
+
+  echo "[*] Provisioning server '$server_name' via deploy key..."
+
+  local response http_code body
+  response=$(curl -s -w "\n%{http_code}" -X POST "${API_URL}/servers/" \
+    -H "Authorization: Api-Key ${deploy_key}" \
+    -H "Content-Type: application/json" \
+    -d "{\"name\": \"${server_name}\"}")
+  http_code=$(echo "$response" | tail -1)
+  body=$(echo "$response" | sed '$d')
+
+  if [[ "$http_code" -eq 201 ]]; then
+    local server_key
+    server_key=$(extract_key_from_json "$body")
+    if [[ -z "$server_key" ]]; then
+      echo "[x] Error: Could not extract server key from API response."
+      echo "    Response: $body"
+      exit_with_telemetry "Failed to extract server key from deploy key response"
+    fi
+    echo "[+] Server '$server_name' provisioned successfully."
+    API_KEY="$server_key"
+    SKIP_KEY_CHECK=true
+    return
+  fi
+
+  # Name collision (400) - retry once with a short suffix
+  if [[ "$http_code" -eq 400 ]]; then
+    local suffix
+    suffix=$(head -c 4 /dev/urandom 2>/dev/null | od -An -tx1 | tr -d ' \n' | head -c 4 || echo "$$$(date +%s)" | tail -c 5)
+    server_name="${server_name}-${suffix}"
+    echo "[!] Name collision. Retrying as '$server_name'..."
+    response=$(curl -s -w "\n%{http_code}" -X POST "${API_URL}/servers/" \
+      -H "Authorization: Api-Key ${deploy_key}" \
+      -H "Content-Type: application/json" \
+      -d "{\"name\": \"${server_name}\"}")
+    http_code=$(echo "$response" | tail -1)
+    body=$(echo "$response" | sed '$d')
+
+    if [[ "$http_code" -eq 201 ]]; then
+      local server_key
+      server_key=$(extract_key_from_json "$body")
+      if [[ -z "$server_key" ]]; then
+        echo "[x] Error: Could not extract server key from API response."
+        echo "    Response: $body"
+        exit_with_telemetry "Failed to extract server key from deploy key response (retry)"
+      fi
+      echo "[+] Server '$server_name' provisioned with suffix."
+      API_KEY="$server_key"
+      SKIP_KEY_CHECK=true
+      return
+    fi
+  fi
+
+  # Workspace limit reached
+  if [[ "$http_code" -eq 403 ]]; then
+    echo "[x] Error: Workspace server limit reached (HTTP 403)."
+    exit_with_telemetry "Workspace server limit reached"
+  fi
+
+  # Deploy key invalid
+  if [[ "$http_code" -eq 401 ]]; then
+    echo "[x] Error: Deploy key is invalid or revoked (HTTP 401)."
+    exit_with_telemetry "Deploy key is invalid or revoked"
+  fi
+
+  # Other errors
+  echo "[x] Error: Deploy key provisioning failed (HTTP $http_code)."
+  echo "    Response: $body"
+  exit_with_telemetry "Deploy key provisioning failed (HTTP $http_code)"
 }
 
 # Fetch the agent binary
@@ -173,10 +258,11 @@ NO_SYSTEM_READ=false
 NO_JOURNAL_ACCESS=false
 SKIP_KEY_CHECK=false
 API_KEY=""
+DEPLOY_KEY=""
 EXTRA_ARGS=()
 
-for arg in "$@"; do
-  case "$arg" in
+while [[ $# -gt 0 ]]; do
+  case "$1" in
     --no-system-read)
       NO_SYSTEM_READ=true
       shift
@@ -189,28 +275,44 @@ for arg in "$@"; do
       SKIP_KEY_CHECK=true
       shift
       ;;
+    --deploy-key)
+      DEPLOY_KEY="$2"
+      shift 2
+      ;;
     --)
       shift
-      EXTRA_ARGS=("$@")  # everything after -- goes here
+      EXTRA_ARGS=("$@")
       break
       ;;
     *)
       if [[ -z "$API_KEY" ]]; then
-        API_KEY="$arg"
+        API_KEY="$1"
         shift
       else
-        echo "[x] Unexpected extra argument: $arg"
-        echo "Usage: sudo install.sh <API_KEY> [--no-system-read] [--no-journal-access]"
+        echo "[x] Unexpected extra argument: $1"
+        echo "Usage: sudo install.sh <API_KEY> [--no-system-read] [--no-journal-access] [--skip-key-check]"
+        echo "   or: sudo install.sh --deploy-key <KEY> [--no-system-read] [--no-journal-access]"
         exit_with_telemetry "Unexpected extra arguments"
       fi
       ;;
   esac
 done
 
-# Check if API key argument was provided
+# If deploy key is provided, provision a server and get the server key
+if [[ -n "$DEPLOY_KEY" ]]; then
+  # Idempotency: skip if already installed
+  if [[ -f "/opt/simob/simob" ]]; then
+    echo "[*] simob is already installed. Nothing to do."
+    exit 0
+  fi
+  provision_server_with_deploy_key "$DEPLOY_KEY"
+fi
+
+# Check if API key argument was provided (either directly or via deploy key)
 if [[ -z "$API_KEY" ]]; then
   echo "[x] Missing API key"
-  echo "Usage: sudo install.sh <API_KEY> [--no-system-read] [--no-journal-access]"
+  echo "Usage: sudo install.sh <API_KEY> [--no-system-read] [--no-journal-access] [--skip-key-check]"
+  echo "   or: sudo install.sh --deploy-key <KEY> [--no-system-read] [--no-journal-access]"
   exit_with_telemetry "API key is missing"
 fi
 # -------------------------------------------------------

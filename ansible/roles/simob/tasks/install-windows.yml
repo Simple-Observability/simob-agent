@@ -1,0 +1,16 @@
+---
+# Install the Simple Observability agent on Windows via deploy key.
+# Server name is always the system hostname.
+# Requires: Administrator privileges on the target.
+
+- name: Install agent via deploy key
+  ansible.windows.win_shell: |
+    $tmp = "$env:TEMP\install.ps1"
+    Invoke-WebRequest -Uri 'https://simpleobservability.com/install.ps1' -OutFile $tmp
+    & $tmp -DeployKey {{ simob_deploy_key }}{{ ' -SkipTelemetry' if simob_skip_telemetry else '' }}
+
+- name: Ensure simob service is running
+  ansible.windows.win_service:
+    name: simob
+    state: started
+    start_mode: auto
