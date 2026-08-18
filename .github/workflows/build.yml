@@ -208,7 +208,7 @@ jobs:
     - name: Install and run agent
       run: |
         $env:BINARY_PATH=".\simob-windows-amd64.exe"
-        .\install.ps1 -ApiKey "dummy-api-key" -SkipKeyCheck -SkipTelemetry -SkipServiceStart --dry-run
+        .\install.ps1 -ApiKey "dummy-api-key" -SkipKeyCheck -SkipTelemetry -SkipServiceStart
         $env:DEBUG="1"
         simob version
         simob config
