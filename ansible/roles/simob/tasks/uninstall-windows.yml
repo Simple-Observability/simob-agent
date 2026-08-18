@@ -1,0 +1,12 @@
+---
+# Uninstall the Simple Observability agent on Windows.
+
+- name: Stop and remove simob service
+  ansible.windows.win_shell: |
+    Stop-Service -Name simob -Force -ErrorAction SilentlyContinue
+    sc.exe delete simob
+
+- name: Remove simob install directory
+  ansible.windows.win_file:
+    path: "C:\\Program Files\\SimpleObservability\\simob"
+    state: absent

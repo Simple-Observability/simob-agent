@@ -1,0 +1,16 @@
+---
+- name: Restart simob service (Linux)
+  ansible.builtin.systemd:
+    name: simob
+    state: restarted
+  when: ansible_service_mgr == "systemd"
+
+- name: Restart simob service (Windows)
+  ansible.windows.win_service:
+    name: simob
+    state: restarted
+  when: ansible_os_family == "Windows"
+
+- name: Reload systemd daemon
+  ansible.builtin.systemd:
+    daemon_reload: true

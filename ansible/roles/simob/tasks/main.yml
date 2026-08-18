@@ -1,0 +1,18 @@
+---
+# Simple Observability agent: dispatch based on desired state and platform.
+
+- name: Uninstall agent (Linux)
+  ansible.builtin.include_tasks: uninstall-linux.yml
+  when: simob_state == "absent" and ansible_os_family != "Windows"
+
+- name: Uninstall agent (Windows)
+  ansible.builtin.include_tasks: uninstall-windows.yml
+  when: simob_state == "absent" and ansible_os_family == "Windows"
+
+- name: Install agent (Linux)
+  ansible.builtin.include_tasks: install-linux.yml
+  when: simob_state == "present" and ansible_os_family != "Windows"
+
+- name: Install agent (Windows)
+  ansible.builtin.include_tasks: install-windows.yml
+  when: simob_state == "present" and ansible_os_family == "Windows"

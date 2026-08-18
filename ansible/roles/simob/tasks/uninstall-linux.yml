@@ -1,0 +1,34 @@
+---
+# Uninstall the Simple Observability agent on Linux.
+
+- name: Stop and disable simob service
+  ansible.builtin.systemd:
+    name: simob
+    state: stopped
+    enabled: false
+  when: ansible_service_mgr == "systemd"
+
+- name: Remove simob service file
+  ansible.builtin.file:
+    path: /etc/systemd/system/simob.service
+    state: absent
+  notify: Reload systemd daemon
+
+- name: Remove simob binary and config
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - /opt/simob
+    - /usr/local/bin/simob
+
+- name: Remove simob-agent user
+  ansible.builtin.user:
+    name: simob-agent
+    state: absent
+    remove: true
+
+- name: Remove simob-admins group
+  ansible.builtin.group:
+    name: simob-admins
+    state: absent
