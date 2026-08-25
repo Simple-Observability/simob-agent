@@ -1,3 +1,5 @@
+requires_ansible: ">=2.14"
+
 repository: https://github.com/Simple-Observability/simob-agent
 documentation: https://simpleobservability.com/docs/installation
 homepage: https://simpleobservability.com

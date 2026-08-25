@@ -369,11 +369,11 @@ if [[ "$IS_SUDO_MODE" == "true" ]]; then
   create_custom_user
 
   # Conditionally add the simob user to the "systemd-journal" group
-  if [[ "$NO_JOURNAL_ACCESS" == false ]]; then
+  if [[ "$NO_JOURNAL_ACCESS" == false && "$SKIP_SYSTEMD" == false ]]; then
     echo "[+] Granting journal access to $CUSTOM_USER..."
     usermod -aG systemd-journal "$CUSTOM_USER"
   else
-    echo "[*] Skipping journal access for $CUSTOM_USER (--no-journal-access flag set)"
+    echo "[*] Skipping journal access for $CUSTOM_USER (no systemd or --no-journal-access flag set)"
   fi
 
 fi
