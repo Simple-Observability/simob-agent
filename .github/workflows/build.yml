@@ -263,6 +263,30 @@ jobs:
             chunkcorp/simob:${{ github.ref_name }}
 
   # ------------------------------------------------------------------
+  # Ansible Galaxy
+  # ------------------------------------------------------------------
+  publish-galaxy:
+    name: Publish Ansible Collection
+    needs: [test-linux, test-windows]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.x'
+
+      - run: pip install ansible-core
+
+      - name: Build collection
+        working-directory: ./ansible
+        run: ansible-galaxy collection build --force
+
+      - name: Publish collection
+        working-directory: ./ansible
+        run: ansible-galaxy collection publish *.tar.gz --api-key ${{ secrets.GALAXY_API_KEY }}
+
+  # ------------------------------------------------------------------
   # Release
   # ------------------------------------------------------------------
   create-release:
