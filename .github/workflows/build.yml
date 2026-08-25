@@ -268,6 +268,7 @@ jobs:
   publish-galaxy:
     name: Publish Ansible Collection
     needs: [test-linux, test-windows]
+    if: github.event_name == 'push' && github.ref_type == 'tag'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -277,6 +278,12 @@ jobs:
           python-version: '3.x'
 
       - run: pip install ansible-core
+
+      - name: Bump collection version to git tag
+        working-directory: ./ansible
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          sed -i "s/^version:.*/version: ${VERSION}/" galaxy.yml
 
       - name: Build collection
         working-directory: ./ansible
