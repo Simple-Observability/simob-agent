@@ -15,6 +15,7 @@ type HostInfo struct {
 	KernelVersion   string `json:"kernel_version"`
 	Arch            string `json:"architecture"`
 	AgentVersion    string `json:"agent_version"`
+	Timezone        string `json:"timezone"`
 }
 
 func Gather() (*HostInfo, error) {
@@ -32,6 +33,7 @@ func Gather() (*HostInfo, error) {
 		KernelVersion:   hInfo.KernelVersion,
 		Arch:            hInfo.KernelArch,
 		AgentVersion:    version.Version,
+		Timezone:        resolveTimezone(),
 	}
 	return info, nil
 }
