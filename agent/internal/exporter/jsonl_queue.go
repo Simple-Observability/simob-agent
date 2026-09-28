@@ -71,10 +71,13 @@ func (q *jsonlQueue) Append(data []byte) error {
 	return nil
 }
 
-// PopBatch drains up to limit entries and rewrites any remainder back to disk.
+// PopBatch drains up to limit entries or maxBytes payload bytes, whichever
+// comes first, and rewrites any remainder back to disk.
+// A single entry larger than maxBytes still goes into the batch so the
+// queue always makes progress.
 // The method holds the queue lock for the whole operation so multiple writers
 // and the single flusher never observe a partially rewritten file.
-func (q *jsonlQueue) PopBatch(limit int) ([][]byte, bool, error) {
+func (q *jsonlQueue) PopBatch(limit, maxBytes int) ([][]byte, bool, error) {
 	unlock, err := q.lock()
 	if err != nil {
 		return nil, false, err
@@ -94,6 +97,7 @@ func (q *jsonlQueue) PopBatch(limit int) ([][]byte, bool, error) {
 
 	reader := bufio.NewReader(source)
 	var batch [][]byte
+	var batchBytes int
 	hasMore := false
 	var leftoverBytes int64
 	for {
@@ -107,8 +111,9 @@ func (q *jsonlQueue) PopBatch(limit int) ([][]byte, bool, error) {
 			if len(line) == 0 {
 				continue
 			}
-			if len(batch) < limit {
+			if len(batch) < limit && (len(batch) == 0 || batchBytes+len(line) <= maxBytes) {
 				batch = append(batch, append([]byte(nil), line...))
+				batchBytes += len(line)
 			} else {
 				written, writeErr := temp.Write(append(line, '\n'))
 				if writeErr != nil {
