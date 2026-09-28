@@ -17,6 +17,7 @@ const (
 	logsQueueName      = "logs"
 	telemetryQueueName = "telemetry"
 	maxBatchSize       = 100
+	maxBatchBytes      = 2 * 1024 * 1024
 	maxAge             = 24 * time.Hour
 )
 
@@ -130,7 +131,7 @@ func (s *spool) getBatch(fromQueue string, unmarshal func([]byte) (Payload, erro
 		return nil, false, fmt.Errorf("unknown queue: %s", fromQueue)
 	}
 
-	lines, hasMore, err := queue.PopBatch(maxBatchSize)
+	lines, hasMore, err := queue.PopBatch(maxBatchSize, maxBatchBytes)
 	if err != nil {
 		return nil, false, err
 	}

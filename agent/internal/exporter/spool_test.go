@@ -3,6 +3,7 @@ package exporter
 import (
 	"os"
 	"strconv"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -102,6 +103,41 @@ func TestSpoolBatchSize(t *testing.T) {
 	require.NoError(t, err)
 	assert.Len(t, metrics2, 50)
 	assert.False(t, hasMore2)
+}
+
+// TestSpoolBatchBytes verifies that a batch is also capped by marshalled
+// size, not only by entry count.
+func TestSpoolBatchBytes(t *testing.T) {
+	tempDir, err := os.MkdirTemp("", "spool_batch_bytes_test")
+	require.NoError(t, err)
+	defer os.RemoveAll(tempDir)
+
+	s, err := newSpool(withDirectory(tempDir))
+	require.NoError(t, err)
+	defer s.close()
+
+	now := strconv.FormatInt(time.Now().UnixMilli(), 10)
+	// Each payload has a ~900KB message, so three of them exceed
+	// maxBatchBytes (2MB) even though the count limit (100) is not reached.
+	bigMessage := strings.Repeat("x", 900*1024)
+	for i := 0; i < 3; i++ {
+		err = s.append(LogPayload{Timestamp: now, Message: bigMessage})
+		require.NoError(t, err)
+	}
+
+	first, hasMore, err := s.getBatch(logsQueueName, unmarshalLog)
+	require.NoError(t, err)
+	require.Len(t, first, 2)
+	assert.True(t, hasMore)
+
+	second, hasMore, err := s.getBatch(logsQueueName, unmarshalLog)
+	require.NoError(t, err)
+	require.Len(t, second, 1)
+	assert.False(t, hasMore)
+
+	third, _, err := s.getBatch(logsQueueName, unmarshalLog)
+	require.NoError(t, err)
+	assert.Empty(t, third)
 }
 
 func TestSpoolMultiWriter(t *testing.T) {

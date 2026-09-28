@@ -25,8 +25,8 @@ func TestBuildCollectors_FilteredConfig(t *testing.T) {
 
 	collectors := BuildCollectors(cfg)
 
-	// Status + cpu + mem = 3
-	assert.Len(t, collectors, 3)
+	// Status + connectivity + cpu + mem = 4
+	assert.Len(t, collectors, 4)
 
 	names := make(map[string]bool)
 	for _, c := range collectors {
@@ -34,6 +34,7 @@ func TestBuildCollectors_FilteredConfig(t *testing.T) {
 	}
 
 	assert.True(t, names["status"])
+	assert.True(t, names["connectivity"])
 	assert.True(t, names["cpu"])
 	assert.True(t, names["mem"])
 	assert.False(t, names["disk"])
@@ -50,7 +51,33 @@ func TestBuildCollectors_NoMatch(t *testing.T) {
 
 	collectors := BuildCollectors(cfg)
 
-	// Only status collector should remain
-	assert.Len(t, collectors, 1)
-	assert.Equal(t, "status", collectors[0].Name())
+	// Only always-on collectors should remain
+	assert.Len(t, collectors, 2)
+	names := make(map[string]bool)
+	for _, c := range collectors {
+		names[c.Name()] = true
+	}
+	assert.True(t, names["status"])
+	assert.True(t, names["connectivity"])
+}
+
+func TestBuildCollectors_AlwaysOnWithOptInMetrics(t *testing.T) {
+	cfg := &collection.CollectionConfig{
+		Metrics: []collection.Metric{
+			{Name: "connectivity_latency_ms"},
+			{Name: "cpu_user_ratio"},
+		},
+	}
+
+	collectors := BuildCollectors(cfg)
+
+	// Status + connectivity + cpu, and exactly ONE connectivity collector.
+	assert.Len(t, collectors, 3)
+	count := 0
+	for _, c := range collectors {
+		if c.Name() == "connectivity" {
+			count++
+		}
+	}
+	assert.Equal(t, 1, count)
 }
