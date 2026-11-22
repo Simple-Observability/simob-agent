@@ -10,14 +10,10 @@ import (
 	"time"
 )
 
-// Report contains an observation and an encoded upload when a snapshot is needed.
+// Report contains an observation and its encoded multipart body.
 type Report struct {
 	Observation Observation
-	Snapshot    *SnapshotUpload
-}
-
-type SnapshotUpload struct {
-	ID          string
+	SnapshotID  string
 	ContentType string
 	Body        []byte
 }
@@ -41,25 +37,24 @@ func NewReport(inventory []Package, collectErr error, acknowledgedHash string) (
 		return Report{}, collectErr
 	default:
 		report.Observation.InventoryHash = Hash(inventory)
-		report.Observation.Status = Snapshot
 		if report.Observation.InventoryHash == acknowledgedHash {
 			report.Observation.Status = Unchanged
 		} else {
-			snapshot, err := encodePackageSnapshot(report.Observation, inventory)
-			if err != nil {
-				return Report{}, err
-			}
-			report.Snapshot = snapshot
+			report.Observation.Status = Snapshot
+			report.SnapshotID = newSnapshotID()
 		}
+	}
+	if err := report.encode(inventory); err != nil {
+		return Report{}, err
 	}
 	return report, nil
 }
 
 func (report Report) ValidateAcknowledgement(ack Acknowledgement) error {
 	expected := Acknowledgement{Result: "observed", InventoryHash: report.Observation.InventoryHash}
-	if report.Snapshot != nil {
+	if report.SnapshotID != "" {
 		expected.Result = "committed"
-		expected.SnapshotID = report.Snapshot.ID
+		expected.SnapshotID = report.SnapshotID
 	}
 	if ack != expected {
 		return errors.New("unexpected package inventory acknowledgement")
@@ -88,36 +83,42 @@ func newSnapshotID() string {
 	return fmt.Sprintf("%x-%x-%x-%x-%x", uuid[:4], uuid[4:6], uuid[6:8], uuid[8:10], uuid[10:])
 }
 
-func encodePackageSnapshot(observation Observation, inventory []Package) (*SnapshotUpload, error) {
-	snapshotID := newSnapshotID()
-	metadata, err := json.Marshal(struct {
+func (report *Report) encode(inventory []Package) error {
+	metadata := struct {
 		Observation
-		SnapshotID   string `json:"snapshot_id"`
-		PackageCount int    `json:"package_count"`
-	}{
-		Observation: observation, SnapshotID: snapshotID, PackageCount: len(inventory),
-	})
+		SnapshotID   string `json:"snapshot_id,omitempty"`
+		PackageCount *int   `json:"package_count,omitempty"`
+	}{Observation: report.Observation, SnapshotID: report.SnapshotID}
+	if report.SnapshotID != "" {
+		count := len(inventory)
+		metadata.PackageCount = &count
+	}
+	encoded, err := json.Marshal(metadata)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	var body packageUpload
 	writer := multipart.NewWriter(&body)
-	if err := writer.WriteField("metadata", string(metadata)); err != nil {
-		return nil, err
+	if err := writer.WriteField("metadata", string(encoded)); err != nil {
+		return err
 	}
-	part, err := writer.CreateFormFile("inventory", "packages.ndjson")
-	if err != nil {
-		return nil, err
-	}
-	encoder := json.NewEncoder(part)
-	for _, p := range inventory {
-		if err := encoder.Encode(p); err != nil {
-			return nil, err
+	if report.SnapshotID != "" {
+		part, err := writer.CreateFormFile("data", "packages.ndjson")
+		if err != nil {
+			return err
+		}
+		encoder := json.NewEncoder(part)
+		for _, pkg := range inventory {
+			if err := encoder.Encode(pkg); err != nil {
+				return err
+			}
 		}
 	}
 	if err := writer.Close(); err != nil {
-		return nil, err
+		return err
 	}
-	return &SnapshotUpload{ID: snapshotID, ContentType: writer.FormDataContentType(), Body: body.Bytes()}, nil
+	report.ContentType = writer.FormDataContentType()
+	report.Body = body.Bytes()
+	return nil
 }

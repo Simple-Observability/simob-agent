@@ -149,14 +149,11 @@ func (c *Client) PostPackageInventory(ctx context.Context, report packages.Repor
 		return false, nil
 	}
 
-	const path = "/servers/packages/"
-	var res *http.Response
-	var err error
-	if snapshot := report.Snapshot; snapshot != nil {
-		res, err = c.postBody(ctx, path, snapshot.ContentType, snapshot.Body, 60*time.Second)
-	} else {
-		res, err = c.postJSON(ctx, path, report.Observation)
+	var timeout time.Duration
+	if report.SnapshotID != "" {
+		timeout = 60 * time.Second
 	}
+	res, err := c.postBody(ctx, "/servers/packages/", report.ContentType, report.Body, timeout)
 	if err != nil {
 		return false, err
 	}
