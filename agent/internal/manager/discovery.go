@@ -13,13 +13,15 @@ import (
 	logsRegistry "agent/internal/logs/registry"
 	"agent/internal/metrics"
 	metricsRegistry "agent/internal/metrics/registry"
+	"agent/internal/packages"
 )
 
 const discoveryInterval = time.Hour
 
 type Discovery struct {
-	client *api.Client
-	wg     *sync.WaitGroup
+	client                  *api.Client
+	wg                      *sync.WaitGroup
+	acknowledgedPackageHash string
 }
 
 func NewDiscovery(client *api.Client, wg *sync.WaitGroup) *Discovery {
@@ -36,7 +38,7 @@ func (d *Discovery) Start(ctx context.Context) {
 func (d *Discovery) run(ctx context.Context) {
 	defer d.wg.Done()
 
-	d.publish()
+	d.publish(ctx)
 
 	ticker := time.NewTicker(discoveryInterval)
 	defer ticker.Stop()
@@ -49,12 +51,12 @@ func (d *Discovery) run(ctx context.Context) {
 			logger.Log.Info("Discovery received shutdown signal.")
 			return
 		case <-ticker.C:
-			d.publish()
+			d.publish(ctx)
 		}
 	}
 }
 
-func (d *Discovery) publish() {
+func (d *Discovery) publish(ctx context.Context) {
 	info, err := hostinfo.Gather()
 	if err != nil {
 		logger.Log.Error("failed to gather host info", "error", err)
@@ -74,6 +76,19 @@ func (d *Discovery) publish() {
 		logger.Log.Error("failed to gather network info", "error", err)
 	} else if err := d.client.PostNetworkInterfaces(ifaces); err != nil {
 		logger.Log.Error("failed to send network info to backend", "error", err)
+	}
+
+	inventory, collectErr := packages.Collect(ctx)
+	report, err := packages.NewReport(inventory, collectErr, d.acknowledgedPackageHash)
+	if err != nil {
+		logger.Log.Error("failed to prepare package inventory report", "error", err)
+	} else if acknowledged, err := d.client.PostPackageInventory(ctx, report); err != nil {
+		if report.Observation.Status == packages.Unchanged {
+			d.acknowledgedPackageHash = ""
+		}
+		logger.Log.Error("failed to send package inventory to backend", "error", err)
+	} else if acknowledged && report.Observation.Status == packages.Snapshot {
+		d.acknowledgedPackageHash = report.Observation.InventoryHash
 	}
 
 	metricsCollectors := metricsRegistry.BuildCollectors(nil)

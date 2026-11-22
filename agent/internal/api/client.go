@@ -2,8 +2,10 @@ package api
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"strconv"
 	"time"
@@ -14,6 +16,7 @@ import (
 	"agent/internal/hardware"
 	"agent/internal/hostinfo"
 	"agent/internal/logger"
+	"agent/internal/packages"
 )
 
 type Client struct {
@@ -140,6 +143,33 @@ func (c *Client) PostNetworkInterfaces(interfaces []hardware.Interface) error {
 	return nil
 }
 
+// PostPackageInventory reports whether the backend acknowledged the inventory observation.
+func (c *Client) PostPackageInventory(ctx context.Context, report packages.Report) (bool, error) {
+	if c.dryRun {
+		return false, nil
+	}
+
+	const path = "/servers/packages/"
+	var res *http.Response
+	var err error
+	if snapshot := report.Snapshot; snapshot != nil {
+		res, err = c.postBody(ctx, path, snapshot.ContentType, snapshot.Body, 60*time.Second)
+	} else {
+		res, err = c.postJSON(ctx, path, report.Observation)
+	}
+	if err != nil {
+		return false, err
+	}
+	defer res.Body.Close()
+
+	var ack packages.Acknowledgement
+	if err := json.NewDecoder(io.LimitReader(res.Body, 4096)).Decode(&ack); err != nil {
+		return false, fmt.Errorf("decode package inventory acknowledgement: %w", err)
+	}
+	err = report.ValidateAcknowledgement(ack)
+	return err == nil, err
+}
+
 func (c *Client) get(path string) (*http.Response, error) {
 	req, err := http.NewRequest("GET", c.baseURL+path, nil)
 	if err != nil {
@@ -174,19 +204,34 @@ func (c *Client) get(path string) (*http.Response, error) {
 }
 
 func (c *Client) post(path string, payload interface{}) (*http.Response, error) {
+	return c.postJSON(context.Background(), path, payload)
+}
+
+func (c *Client) postJSON(ctx context.Context, path string, payload interface{}) (*http.Response, error) {
 	jsonData, err := json.Marshal(payload)
 	if err != nil {
 		return nil, err
 	}
 
-	req, err := http.NewRequest("POST", c.baseURL+path, bytes.NewBuffer(jsonData))
+	return c.postBody(ctx, path, "application/json", jsonData, 0)
+}
+
+func (c *Client) postBody(ctx context.Context, path, contentType string, data []byte, timeout time.Duration) (*http.Response, error) {
+	httpClient := c.client
+	if timeout > 0 {
+		client := *c.client
+		client.Timeout = timeout
+		httpClient = &client
+	}
+
+	req, err := http.NewRequestWithContext(ctx, "POST", c.baseURL+path, bytes.NewReader(data))
 	if err != nil {
 		return nil, err
 	}
 	req.Header.Set("Authorization", "Api-Key "+c.apiKey)
-	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Content-Type", contentType)
 
-	res, err := c.client.Do(req)
+	res, err := httpClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("request failed: %w", err)
 	}
