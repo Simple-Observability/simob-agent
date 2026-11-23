@@ -153,7 +153,7 @@ func (c *Client) PostPackageInventory(ctx context.Context, report packages.Repor
 	if report.SnapshotID != "" {
 		timeout = 60 * time.Second
 	}
-	res, err := c.postBody(ctx, "/servers/packages/", report.ContentType, report.Body, timeout)
+	res, err := c.postJSONBody(ctx, "/servers/packages/", report.Body, timeout)
 	if err != nil {
 		return false, err
 	}
@@ -201,19 +201,15 @@ func (c *Client) get(path string) (*http.Response, error) {
 }
 
 func (c *Client) post(path string, payload interface{}) (*http.Response, error) {
-	return c.postJSON(context.Background(), path, payload)
-}
-
-func (c *Client) postJSON(ctx context.Context, path string, payload interface{}) (*http.Response, error) {
 	jsonData, err := json.Marshal(payload)
 	if err != nil {
 		return nil, err
 	}
 
-	return c.postBody(ctx, path, "application/json", jsonData, 0)
+	return c.postJSONBody(context.Background(), path, jsonData, 0)
 }
 
-func (c *Client) postBody(ctx context.Context, path, contentType string, data []byte, timeout time.Duration) (*http.Response, error) {
+func (c *Client) postJSONBody(ctx context.Context, path string, data []byte, timeout time.Duration) (*http.Response, error) {
 	httpClient := c.client
 	if timeout > 0 {
 		client := *c.client
@@ -226,7 +222,7 @@ func (c *Client) postBody(ctx context.Context, path, contentType string, data []
 		return nil, err
 	}
 	req.Header.Set("Authorization", "Api-Key "+c.apiKey)
-	req.Header.Set("Content-Type", contentType)
+	req.Header.Set("Content-Type", "application/json")
 
 	res, err := httpClient.Do(req)
 	if err != nil {

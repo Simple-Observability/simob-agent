@@ -14,8 +14,6 @@ const (
 	Snapshot    = "snapshot"
 	Unchanged   = "unchanged"
 	Unsupported = "unsupported"
-
-	MaxUploadBytes = 32 << 20
 )
 
 var ErrUnsupported = errors.New("package inventory collector unavailable")

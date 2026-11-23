@@ -1,12 +1,9 @@
 package packages_test
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"io"
-	"mime"
-	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -44,41 +41,29 @@ func TestPostPackageInventorySendsSnapshotOnce(t *testing.T) {
 			return
 		}
 
-		multipartReader, err := req.MultipartReader()
-		if err != nil {
-			t.Error(err)
+		if got := req.Header.Get("Content-Type"); got != "application/json" {
+			t.Errorf("unexpected content type: %s", got)
 			return
 		}
-		metadataPart, err := multipartReader.NextPart()
-		if err != nil || metadataPart.FormName() != "metadata" {
-			t.Errorf("missing metadata part: %v", err)
-			return
-		}
-		var metadata struct {
+		var payload struct {
 			packages.Observation
-			SnapshotID   string `json:"snapshot_id"`
-			PackageCount int    `json:"package_count"`
+			SnapshotID string             `json:"snapshot_id"`
+			Packages   []packages.Package `json:"packages"`
 		}
-		if err := json.NewDecoder(metadataPart).Decode(&metadata); err != nil {
+		if err := json.NewDecoder(req.Body).Decode(&payload); err != nil {
 			t.Error(err)
 			return
 		}
-		if metadata.Observation != report.Observation || metadata.PackageCount != 1 || metadata.SnapshotID != report.SnapshotID {
-			t.Errorf("unexpected metadata: %+v", metadata)
+		if payload.Observation != report.Observation || payload.SnapshotID != report.SnapshotID {
+			t.Errorf("unexpected snapshot: %+v", payload)
 			return
 		}
-		inventoryPart, err := multipartReader.NextPart()
-		if err != nil || inventoryPart.FormName() != "data" || inventoryPart.FileName() == "" {
-			t.Errorf("missing inventory file: %v", err)
-			return
-		}
-		var row packages.Package
-		if err := json.NewDecoder(inventoryPart).Decode(&row); err != nil || row != rows[0] {
-			t.Errorf("unexpected package row %+v: %v", row, err)
+		if len(payload.Packages) != 1 || payload.Packages[0] != rows[0] {
+			t.Errorf("unexpected package list: %+v", payload.Packages)
 			return
 		}
 		if err := json.NewEncoder(w).Encode(map[string]string{
-			"result": "committed", "snapshot_id": metadata.SnapshotID, "inventory_hash": metadata.InventoryHash,
+			"result": "committed", "snapshot_id": payload.SnapshotID, "inventory_hash": payload.InventoryHash,
 		}); err != nil {
 			t.Error(err)
 		}
@@ -101,23 +86,16 @@ func TestPostPackageInventoryRequiresAcknowledgementAndHonorsDryRun(t *testing.T
 		t.Fatal(err)
 	}
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		reader, err := req.MultipartReader()
-		if err != nil {
-			t.Error(err)
+		var payload struct {
+			packages.Observation
+			Packages json.RawMessage `json:"packages"`
+		}
+		if err := json.NewDecoder(req.Body).Decode(&payload); err != nil || payload.Observation != report.Observation {
+			t.Errorf("unexpected observation %+v: %v", payload, err)
 			return
 		}
-		metadata, err := reader.NextPart()
-		if err != nil || metadata.FormName() != "metadata" {
-			t.Errorf("missing metadata part: %v", err)
-			return
-		}
-		var observation packages.Observation
-		if err := json.NewDecoder(metadata).Decode(&observation); err != nil || observation != report.Observation {
-			t.Errorf("unexpected observation %+v: %v", observation, err)
-			return
-		}
-		if _, err := reader.NextPart(); err != io.EOF {
-			t.Errorf("expected a metadata-only report, got %v", err)
+		if payload.Packages != nil {
+			t.Errorf("unchanged reports must omit packages, got %s", payload.Packages)
 			return
 		}
 		_, _ = io.WriteString(w, `{"result":"observed","inventory_hash":"other"}`)
@@ -165,39 +143,33 @@ func TestNewReportDistinguishesEmptySnapshotsFromUnsupportedReports(t *testing.T
 			if err != nil {
 				t.Fatal(err)
 			}
-			mediaType, params, err := mime.ParseMediaType(report.ContentType)
-			if err != nil || mediaType != "multipart/form-data" {
-				t.Fatalf("expected a multipart report, got %s: %v", report.ContentType, err)
-			}
-			reader := multipart.NewReader(bytes.NewReader(report.Body), params["boundary"])
-			metadata, err := reader.NextPart()
-			if err != nil || metadata.FormName() != "metadata" {
-				t.Fatalf("missing metadata part: %v", err)
-			}
 			var fields struct {
 				packages.Observation
-				PackageCount *int `json:"package_count"`
+				Packages json.RawMessage `json:"packages"`
 			}
-			if err := json.NewDecoder(metadata).Decode(&fields); err != nil || fields.Status != test.status {
-				t.Fatalf("unexpected metadata: %+v, %v", fields, err)
+			if err := json.Unmarshal(report.Body, &fields); err != nil || fields.Status != test.status {
+				t.Fatalf("unexpected report: %+v, %v", fields, err)
 			}
 			if test.status == packages.Snapshot {
-				data, err := reader.NextPart()
-				if err != nil || data.FormName() != "data" || data.FileName() == "" {
-					t.Fatalf("missing empty data file: %v", err)
+				if string(fields.Packages) != "[]" {
+					t.Fatalf("expected an empty package list, got %s", fields.Packages)
 				}
-				if size, err := io.Copy(io.Discard, data); err != nil || size != 0 {
-					t.Fatalf("expected an empty data file, got %d bytes: %v", size, err)
-				}
-				if fields.PackageCount == nil || *fields.PackageCount != 0 {
-					t.Fatal("expected package_count to be zero")
-				}
-			} else if fields.PackageCount != nil {
-				t.Fatal("unsupported reports must omit package_count")
-			}
-			if _, err := reader.NextPart(); err != io.EOF {
-				t.Fatalf("expected the end of the report, got %v", err)
+			} else if fields.Packages != nil {
+				t.Fatal("unsupported reports must omit packages")
 			}
 		})
+	}
+}
+
+func TestNewReportRejectsOversizedJSON(t *testing.T) {
+	inventory := make([]packages.Package, 20000)
+	for i := range inventory {
+		inventory[i] = packages.Package{
+			Manager: "dpkg", Name: "nginx-core", Version: "1.24", Arch: "amd64",
+			SourceName: "nginx", SourceVersion: "1." + strings.Repeat("a", 200),
+		}
+	}
+	if _, err := packages.NewReport(inventory, nil, ""); err == nil || !strings.Contains(err.Error(), "4 MiB") {
+		t.Fatalf("expected an upload limit error, got %v", err)
 	}
 }

@@ -22,17 +22,6 @@ var (
 	revision     = regexp.MustCompile(`^[A-Za-z0-9+.~]+$`)
 )
 
-type dpkgOutput struct {
-	bytes.Buffer
-}
-
-func (out *dpkgOutput) Write(data []byte) (int, error) {
-	if len(data) > MaxUploadBytes-out.Len() {
-		return 0, errors.New("dpkg output is larger than 32 MiB")
-	}
-	return out.Buffer.Write(data)
-}
-
 func Collect(ctx context.Context) ([]Package, error) {
 	ctx, cancel := context.WithTimeout(ctx, 20*time.Second)
 	defer cancel()
@@ -43,15 +32,14 @@ func Collect(ctx context.Context) ([]Package, error) {
 	}
 	cmd.Env = append(cmd.Environ(), "LC_ALL=C")
 	cmd.WaitDelay = time.Second
-	var output dpkgOutput
-	cmd.Stdout = &output
-	if err := cmd.Run(); err != nil {
+	output, err := cmd.Output()
+	if err != nil {
 		if ctx.Err() != nil {
 			err = ctx.Err()
 		}
 		return nil, fmt.Errorf("dpkg-query failed: %w", err)
 	}
-	return parseDPKG(output.Bytes())
+	return parseDPKG(output)
 }
 
 func parseDPKG(output []byte) ([]Package, error) {

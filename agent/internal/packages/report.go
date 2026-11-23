@@ -1,20 +1,19 @@
 package packages
 
 import (
-	"bytes"
 	"crypto/rand"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"mime/multipart"
 	"time"
 )
 
-// Report contains an observation and its encoded multipart body.
+const maxUploadBytes = 4 << 20
+
+// Report contains an observation and its encoded JSON body.
 type Report struct {
 	Observation Observation
 	SnapshotID  string
-	ContentType string
 	Body        []byte
 }
 
@@ -44,9 +43,25 @@ func NewReport(inventory []Package, collectErr error, acknowledgedHash string) (
 			report.SnapshotID = newSnapshotID()
 		}
 	}
-	if err := report.encode(inventory); err != nil {
+	payload := struct {
+		Observation
+		SnapshotID string     `json:"snapshot_id,omitempty"`
+		Packages   *[]Package `json:"packages,omitempty"`
+	}{Observation: report.Observation, SnapshotID: report.SnapshotID}
+	if report.SnapshotID != "" {
+		if inventory == nil {
+			inventory = []Package{}
+		}
+		payload.Packages = &inventory
+	}
+	body, err := json.Marshal(payload)
+	if err != nil {
 		return Report{}, err
 	}
+	if len(body) > maxUploadBytes {
+		return Report{}, errors.New("package upload exceeds the 4 MiB request limit")
+	}
+	report.Body = body
 	return report, nil
 }
 
@@ -62,63 +77,10 @@ func (report Report) ValidateAcknowledgement(ack Acknowledgement) error {
 	return nil
 }
 
-var errPackageUploadTooLarge = errors.New("package upload exceeds the 32 MiB request limit")
-
-type packageUpload struct {
-	bytes.Buffer
-}
-
-func (body *packageUpload) Write(data []byte) (int, error) {
-	if len(data) > MaxUploadBytes-body.Len() {
-		return 0, errPackageUploadTooLarge
-	}
-	return body.Buffer.Write(data)
-}
-
 func newSnapshotID() string {
 	var uuid [16]byte
 	rand.Read(uuid[:])
 	uuid[6] = uuid[6]&0x0f | 0x40
 	uuid[8] = uuid[8]&0x3f | 0x80
 	return fmt.Sprintf("%x-%x-%x-%x-%x", uuid[:4], uuid[4:6], uuid[6:8], uuid[8:10], uuid[10:])
-}
-
-func (report *Report) encode(inventory []Package) error {
-	metadata := struct {
-		Observation
-		SnapshotID   string `json:"snapshot_id,omitempty"`
-		PackageCount *int   `json:"package_count,omitempty"`
-	}{Observation: report.Observation, SnapshotID: report.SnapshotID}
-	if report.SnapshotID != "" {
-		count := len(inventory)
-		metadata.PackageCount = &count
-	}
-	encoded, err := json.Marshal(metadata)
-	if err != nil {
-		return err
-	}
-
-	var body packageUpload
-	writer := multipart.NewWriter(&body)
-	if err := writer.WriteField("metadata", string(encoded)); err != nil {
-		return err
-	}
-	if report.SnapshotID != "" {
-		part, err := writer.CreateFormFile("data", "packages.ndjson")
-		if err != nil {
-			return err
-		}
-		encoder := json.NewEncoder(part)
-		for _, pkg := range inventory {
-			if err := encoder.Encode(pkg); err != nil {
-				return err
-			}
-		}
-	}
-	if err := writer.Close(); err != nil {
-		return err
-	}
-	report.ContentType = writer.FormDataContentType()
-	report.Body = body.Bytes()
-	return nil
 }
